@@ -16,6 +16,10 @@ export default defineConfig({
     }),
   ],
   server: {
+    // Toujours 5174 en local (origine autorisée par le CORS des API). strictPort :
+    // si le port est pris, Vite s'arrête au lieu de basculer silencieusement sur 5175.
+    port: 5174,
+    strictPort: true,
     proxy: {
       "/api": {
         target: "http://localhost:8000",

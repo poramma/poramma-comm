@@ -1,5 +1,5 @@
 import React from 'react';
-import { motion } from 'framer-motion';
+import { motion, type Variants } from 'framer-motion';
 
 interface LoaderProps {
   size?: 'sm' | 'md' | 'lg';
@@ -30,7 +30,7 @@ const Loader: React.FC<LoaderProps> = ({
     exit: { opacity: 0, transition: { duration: 0.3 } }
   };
 
-  const spinnerVariants = {
+  const spinnerVariants: Variants = {
     animate: {
       rotate: 360,
       transition: {
@@ -132,7 +132,7 @@ export const PageLoader: React.FC = () => (
           MA
         </div>
         <p className="text-neutral-600 dark:text-neutral-400 font-semibold">
-          MaliServices
+          Poramma
         </p>
       </motion.div>
     </div>

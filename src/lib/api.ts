@@ -1,77 +1,90 @@
-import type {
-    ApiResult, BasicRegisterPayload, LoginPayload, OtpRequestPayload, OtpVerifyPayload,
-    VerificationSubmitPayload, StudentProfile, IdentityDocUpload
-  } from "./types";
-  
-  const API = (import.meta as any).env?.VITE_API_URL ?? "/api"; // pointe vers ton backend
-  
-  let authToken: string | null = null;
-  export const setAuthToken = (t: string | null) => { authToken = t; };
-  
-  const headers = () => ({
-    "Authorization": authToken ? `Bearer ${authToken}` : "",
-  });
-  
-  async function jsonFetch<T>(path: string, init?: RequestInit): Promise<ApiResult<T>> {
-    const res = await fetch(`${API}${path}`, {
-      ...init,
-      headers: {
-        "Content-Type": "application/json",
-        ...headers(),
-        ...(init?.headers || {}),
-      },
+// ============================================================
+// src/lib/api.ts — client HTTP unique (même convention que frontend-embassy)
+// ============================================================
+//
+// Remplace les deux anciennes couches concurrentes (src/api/axios.ts+services
+// et cet ancien src/lib/api.ts basé sur fetch) : un seul point d'entrée, le
+// gateway nginx (infra/nginx/nginx.conf), qui décide lui-même identity-api
+// vs ambassade-api selon le préfixe de chemin.
+
+import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
+
+export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost";
+const REQUEST_TIMEOUT = 30000;
+
+const ACCESS_TOKEN_KEY = "poramma_community_access_token";
+const REFRESH_TOKEN_KEY = "poramma_community_refresh_token";
+
+export function getAccessToken(): string | null {
+  return localStorage.getItem(ACCESS_TOKEN_KEY);
+}
+
+export function getRefreshToken(): string | null {
+  return localStorage.getItem(REFRESH_TOKEN_KEY);
+}
+
+export function setTokens(accessToken: string, refreshToken: string) {
+  localStorage.setItem(ACCESS_TOKEN_KEY, accessToken);
+  localStorage.setItem(REFRESH_TOKEN_KEY, refreshToken);
+}
+
+export function clearTokens() {
+  localStorage.removeItem(ACCESS_TOKEN_KEY);
+  localStorage.removeItem(REFRESH_TOKEN_KEY);
+}
+
+export const api: AxiosInstance = axios.create({
+  baseURL: API_BASE_URL,
+  timeout: REQUEST_TIMEOUT,
+  headers: { "Content-Type": "application/json", Accept: "application/json" },
+});
+
+api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
+  const token = getAccessToken();
+  if (token) config.headers.Authorization = `Bearer ${token}`;
+  return config;
+});
+
+/**
+ * Refresh en vol partagé entre requêtes concurrentes — même principe que
+ * frontend-embassy/src/lib/api.ts (évite que deux 401 simultanés appellent
+ * chacun /auth/refresh avec le même refreshToken, dont un seul réussirait).
+ */
+let refreshPromise: Promise<{ accessToken: string; refreshToken: string }> | null = null;
+
+function refreshTokens(): Promise<{ accessToken: string; refreshToken: string }> {
+  if (!refreshPromise) {
+    refreshPromise = (async () => {
+      const refreshToken = getRefreshToken();
+      if (!refreshToken) throw new Error("No refresh token");
+
+      // axios brut, pas `api` — évite de re-rentrer dans ces intercepteurs.
+      const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+      setTokens(data.data.accessToken, data.data.refreshToken);
+      return data.data as { accessToken: string; refreshToken: string };
+    })().finally(() => {
+      refreshPromise = null;
     });
-    try {
-      const data = await res.json();
-      return data;
-    } catch {
-      return { ok: false, error: "Invalid JSON response" };
-    }
   }
-  
-  export const AuthAPI = {
-    registerBasic: (payload: BasicRegisterPayload) =>
-      jsonFetch<{ user: StudentProfile; token: string }>("/auth/register-basic", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    login: (payload: LoginPayload) =>
-      jsonFetch<{ token: string; needsOtp: boolean }>("/auth/login", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    requestOtp: (payload: OtpRequestPayload) =>
-      jsonFetch<{}>("/auth/otp/request", { method: "POST", body: JSON.stringify(payload) }),
-    verifyOtp: (payload: OtpVerifyPayload) =>
-      jsonFetch<{ token: string }>("/auth/otp/verify", { method: "POST", body: JSON.stringify(payload) }),
-    me: () => jsonFetch<StudentProfile>("/me", { method: "GET" }),
-  };
-  
-  export const FilesAPI = {
-    // upload sécurisé -> backend stocke chiffré (AES-256), tu reçois un fileId
-    upload: async (doc: IdentityDocUpload) => {
-      const fd = new FormData();
-      fd.append("file", doc.file);
-      fd.append("kind", doc.kind);
-      const res = await fetch(`${API}/files/upload`, {
-        method: "POST",
-        headers: { ...headers() },
-        body: fd,
-      });
-      return (await res.json()) as ApiResult<{ fileId: string }>;
-    },
-  };
-  
-  export const VerifyAPI = {
-    submit: (payload: VerificationSubmitPayload) =>
-      jsonFetch<{ profile: StudentProfile }>("/verify/submit", {
-        method: "POST",
-        body: JSON.stringify(payload),
-      }),
-    // côté agent: approve/reject (exposé pour plus tard)
-  };
-  
-  export const AuditAPI = {
-    log: (evt: any) => jsonFetch<{}>("/audit", { method: "POST", body: JSON.stringify(evt) }),
-  };
-  
+  return refreshPromise;
+}
+
+api.interceptors.response.use(
+  (response) => response,
+  async (error) => {
+    const original = error.config;
+    if (error.response?.status === 401 && !original._retry && getRefreshToken()) {
+      original._retry = true;
+      try {
+        const { accessToken } = await refreshTokens();
+        original.headers.Authorization = `Bearer ${accessToken}`;
+        return api(original);
+      } catch {
+        clearTokens();
+        window.location.href = "/signin";
+        return Promise.reject(error);
+      }
+    }
+    return Promise.reject(error);
+  }
+);

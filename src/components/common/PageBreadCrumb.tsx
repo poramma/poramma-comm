@@ -20,9 +20,9 @@ const PageBreadcrumb: React.FC<BreadcrumbProps> = ({ pageTitle, prefix }) => {
           <li>
             <Link
               className="inline-flex items-center gap-1.5 text-sm text-gray-500 dark:text-gray-400"
-              to="/"
+              to="/dashboard"
             >
-              Home
+              Accueil
               <svg
                 className="stroke-current"
                 width="17"

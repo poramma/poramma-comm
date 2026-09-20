@@ -1,4 +1,3 @@
-import React from "react";
 import { FileText, Clock, DollarSign, Info, HelpCircle } from "lucide-react";
 import { motion, AnimatePresence } from "framer-motion";
 import Badge from "../../components/ui/badge/Badge";

@@ -13,24 +13,24 @@ export default function AuthLayout({
       <div className="relative flex flex-col justify-center w-full h-screen lg:flex-row dark:bg-gray-900 sm:p-0">
         {children}
 
-        {/* SECTION VISUELLE AMBASSADE */}
+        {/* SECTION VISUELLE PORAMMA */}
         <div className="items-center hidden w-full h-full lg:w-1/2 bg-gradient-to-br from-green-600 via-yellow-500 to-red-600 dark:bg-white/5 lg:grid">
           <div className="relative flex items-center justify-center z-1">
             <GridShape />
 
-            <div className="flex flex-col items-center max-w-xs px-6 text-center">
-              <Link to="/" className="block mb-4">
+            <div className="flex flex-col items-center max-w-md px-6 text-center">
+              {/* Le logo a un fond blanc : il est posé sur une carte blanche pour rester net sur le dégradé, en clair comme en sombre. */}
+              <Link to="/" className="block mb-6 rounded-2xl bg-white p-4 shadow-xl">
                 <img
-                  width={231}
-                  height={48}
-                  src="/images/logo/fivision-logo.svg" // Remplace après
-                  alt="Logo Fivision"
+                  src="/images/poramma-logo.png"
+                  alt="Poramma"
+                  className="w-full max-w-sm h-auto"
                 />
               </Link>
 
               <p className="text-white text-sm font-medium leading-relaxed">
-                Plateforme officielle des <strong>services consulaires</strong> <br />
-                de l’ambassade du Mali à l’étranger
+                La plateforme officielle des <strong>services consulaires</strong> <br />
+                de l’ambassade du Mali au Maroc
               </p>
 
               <div className="mt-4 text-white/80 text-xs">

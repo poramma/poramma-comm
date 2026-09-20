@@ -6,39 +6,29 @@ import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import Select from "../form/Select";
 import { useAuth } from "../../context/AuthContext";
-import { userService } from "../../api/services/userService";
-import { updateWorkerProfileDto } from "../../api/dto/UserDTO";
+import { userService } from "../../lib/services";
+import type { FullUserProfile } from "../../lib/types";
 import Loader from "../ui/loader/Loader";
 import { toast } from "react-toastify";
 
 export default function WorkerProfileCard() {
   const { isOpen, openModal, closeModal } = useModal();
-  const { user, updateUserWorkerProfile } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<FullUserProfile | null>(null);
   const [formData, setFormData] = useState({
     employer: "",
     profession: "",
     contractType: "",
-    familyRelation: "",
-    mainApplicantINUE: ""
   });
 
   const contractTypes = [
     "CDI",
-    "CDD", 
+    "CDD",
     "Stage",
     "Freelance",
     "Interim",
-    "Autre"
-  ];
-
-  const familyRelations = [
-    "Conjoint(e)",
-    "Enfant", 
-    "Parent",
-    "Frère/Sœur",
     "Autre"
   ];
 
@@ -48,14 +38,12 @@ export default function WorkerProfileCard() {
       if (user?.id) {
         setIsLoading(true);
         try {
-          const profile = await userService.getUserProfile(user.id);
+          const profile = await userService.getProfile(user.id);
           setUserProfile(profile);
           setFormData({
             employer: profile.workerProfile?.employer || "",
             profession: profile.workerProfile?.profession || "",
             contractType: profile.workerProfile?.contractType || "",
-            familyRelation: profile.workerProfile?.familyRelation || "",
-            mainApplicantINUE: profile.workerProfile?.mainApplicantINUE || ""
           });
         } catch (error) {
           console.error("Erreur lors du chargement du profil travailleur:", error);
@@ -76,8 +64,6 @@ export default function WorkerProfileCard() {
         employer: userProfile.workerProfile?.employer || "",
         profession: userProfile.workerProfile?.profession || "",
         contractType: userProfile.workerProfile?.contractType || "",
-        familyRelation: userProfile.workerProfile?.familyRelation || "",
-        mainApplicantINUE: userProfile.workerProfile?.mainApplicantINUE || ""
       });
     }
   }, [isOpen, userProfile]);
@@ -94,21 +80,14 @@ export default function WorkerProfileCard() {
 
     setIsSaving(true);
     try {
-      const payload: updateWorkerProfileDto = {
+      const updatedWorkerProfile = await userService.updateWorkerProfile(user.id, {
         employer: formData.employer,
         profession: formData.profession,
         contractType: formData.contractType,
-        ...(formData.familyRelation && {
-          familyRelation: formData.familyRelation,
-          mainApplicantINUE: formData.mainApplicantINUE
-        })
-      };
+      });
 
-      const updatedProfile = await userService.updateWorkerProfile(payload, user.id);
-      
-      updateUserWorkerProfile(updatedProfile);
-      setUserProfile(updatedProfile);
-      
+      setUserProfile((prev) => (prev ? { ...prev, workerProfile: updatedWorkerProfile } : prev));
+
       toast.success("Profil professionnel mis à jour avec succès !");
       closeModal();
     } catch (error: any) {
@@ -168,27 +147,6 @@ export default function WorkerProfileCard() {
               </p>
             </div>
 
-            {userProfile?.workerProfile?.familyRelation && (
-              <>
-                <div>
-                  <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                    Lien familial
-                  </p>
-                  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                    {userProfile.workerProfile.familyRelation}
-                  </p>
-                </div>
-
-                <div>
-                  <p className="mb-2 text-xs leading-normal text-gray-500 dark:text-gray-400">
-                    INUE du membre principal
-                  </p>
-                  <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                    {userProfile.workerProfile.mainApplicantINUE || "Non renseigné"}
-                  </p>
-                </div>
-              </>
-            )}
           </div>
         </div>
 
@@ -252,27 +210,6 @@ export default function WorkerProfileCard() {
                     />
                   </div>
 
-                  <div className="col-span-2">
-                    <Label>Lien familial (optionnel)</Label>
-                    <Select
-                      options={[{ value: "", label: "Aucun" }, ...familyRelations.map(rel => ({ value: rel, label: rel }))]}
-                      defaultValue={formData.familyRelation}
-                      onChange={(value) => handleInputChange('familyRelation', value)}
-                      placeholder="Si vous êtes un membre de famille"
-                    />
-                  </div>
-
-                  {formData.familyRelation && (
-                    <div className="col-span-2">
-                      <Label>INUE du membre principal</Label>
-                      <Input 
-                        type="text" 
-                        value={formData.mainApplicantINUE}
-                        onChange={(e) => handleInputChange('mainApplicantINUE', e.target.value)}
-                        placeholder="INUE de la personne principale"
-                      />
-                    </div>
-                  )}
                 </div>
               </div>
             </div>

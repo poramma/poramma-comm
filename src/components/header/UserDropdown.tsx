@@ -9,13 +9,16 @@ export default function UserDropdown() {
   const [isOpen, setIsOpen] = useState(false);
 
   const { user, logout } = useAuth();
+  const displayName = user?.profile ? [user.profile.firstName, user.profile.lastName].filter(Boolean).join(" ") : user?.email ?? "";
+
+  const initials = ((user?.profile?.firstName?.[0] ?? "") + (user?.profile?.lastName?.[0] ?? "") || (user?.email?.[0] ?? "?")).toUpperCase();
 
   function toggleDropdown() {
     setIsOpen(!isOpen);
   }
 
-  function handleLogout() {
-    logout();
+  async function handleLogout() {
+    await logout();
     closeDropdown();
     navigate("/signin");
   }
@@ -29,11 +32,11 @@ export default function UserDropdown() {
         onClick={toggleDropdown}
         className="flex items-center text-gray-700 dropdown-toggle dark:text-gray-400"
       >
-        <span className="mr-3 overflow-hidden rounded-full h-11 w-11">
-          <img src="/images/user/owner.jpg" alt="User" />
+        <span className="mr-3 flex h-11 w-11 items-center justify-center rounded-full bg-brand-500 text-sm font-semibold text-white">
+          {initials}
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">Moussa Diallo</span>
+        <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -61,7 +64,7 @@ export default function UserDropdown() {
       >
         <div>
           <span className="block font-medium text-gray-700 text-theme-sm dark:text-gray-400">
-            Moussa Diallo
+            {displayName}
           </span>
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {user?.email}
@@ -91,14 +94,14 @@ export default function UserDropdown() {
                   fill=""
                 />
               </svg>
-              Editer Profil
+              Mon profil
             </DropdownItem>
           </li>
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/profile"
+              to="/settings"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg
@@ -123,7 +126,7 @@ export default function UserDropdown() {
             <DropdownItem
               onItemClick={closeDropdown}
               tag="a"
-              to="/profile"
+              to="/support"
               className="flex items-center gap-3 px-3 py-2 font-medium text-gray-700 rounded-lg group text-theme-sm hover:bg-gray-100 hover:text-gray-700 dark:text-gray-400 dark:hover:bg-white/5 dark:hover:text-gray-300"
             >
               <svg

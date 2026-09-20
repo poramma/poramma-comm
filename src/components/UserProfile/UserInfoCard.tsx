@@ -7,15 +7,15 @@ import Label from "../form/Label";
 import TextArea from "../form/input/TextArea";
 import Select from "../form/Select";
 import { useAuth } from "../../context/AuthContext";
-import { userService } from "../../api/services/userService";
-import { updatePersonalInfoDto } from "../../api/dto/UserDTO";
+import { userService } from "../../lib/services";
+import type { FullUserProfile } from "../../lib/types";
 import Loader, { ButtonLoader} from "../ui/loader/Loader";
 import { toast } from "react-toastify";
 import DatePicker from '../form/date-picker';
 
 export default function UserInfoCard() {
   const { isOpen, openModal, closeModal } = useModal();
-  const { user, updateUserPersonalInfo } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -26,7 +26,7 @@ export default function UserInfoCard() {
     birthDate: ""
   });
 
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<FullUserProfile | null>(null);
 
   // Charger les données utilisateur
   useEffect(() => {
@@ -34,7 +34,7 @@ export default function UserInfoCard() {
       if (user?.id) {
         setIsLoading(true);
         try {
-          const userProfile = await userService.getUserProfile(user.id);
+          const userProfile = await userService.getProfile(user.id);
           setUserProfile(userProfile);
         } catch (error) {
           console.error("Erreur lors du chargement du profil:", error);
@@ -55,7 +55,7 @@ export default function UserInfoCard() {
       if (user?.id && isOpen) {
         setIsLoading(true);
         try {
-          const userProfile = await userService.getUserProfile(user.id);
+          const userProfile = await userService.getProfile(user.id);
           setFormData({
             firstName: userProfile.personalInfo.firstName || "",
             lastName: userProfile.personalInfo.lastName || "",
@@ -88,19 +88,16 @@ export default function UserInfoCard() {
 
     setIsSaving(true);
     try {
-      const payload: updatePersonalInfoDto = {
+      const updatedPersonalInfo = await userService.updatePersonalInfo(user.id, {
         firstName: formData.firstName,
         lastName: formData.lastName,
         gender: formData.gender,
         bio: formData.bio,
-        birthDate: formData.birthDate
-      };
+        birthDate: formData.birthDate,
+      });
 
-      const updatedProfile = await userService.updatePersonalInfo(payload, user.id);
-      
-      // Mettre à jour le contexte d'authentification
-      updateUserPersonalInfo(updatedProfile);
-      
+      setUserProfile((prev) => (prev ? { ...prev, personalInfo: { ...prev.personalInfo, ...updatedPersonalInfo } } : prev));
+
       toast.success("Informations personnelles mises à jour avec succès !");
       closeModal();
     } catch (error: any) {
@@ -172,7 +169,7 @@ export default function UserInfoCard() {
                 Téléphone
               </p>
               <p className="text-sm font-medium text-gray-800 dark:text-white/90">
-                {user?.personalInfo?.phone || "Non renseigné"}
+                {userProfile?.personalInfo.phone || "Non renseigné"}
               </p>
             </div>
 

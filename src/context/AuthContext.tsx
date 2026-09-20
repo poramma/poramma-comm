@@ -1,36 +1,31 @@
 import { createContext, useContext, useState, useEffect, ReactNode } from "react";
-import { updatePersonalInfoDto, updateAddressDto, updateStudentProfileDto, updateWorkerProfileDto, UserProfileDTO } from "../api/dto/UserDTO";
-import { authService } from "../api/services/authService";
+import { authService } from "../lib/services";
+import { getAccessToken, clearTokens } from "../lib/api";
+import type { AuthUser } from "../lib/types";
 
 interface AuthContextType {
-  user: UserProfileDTO | null;
+  user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string) => Promise<void>;
-  register: (data: any) => Promise<void>;
-  updateUserPersonalInfo: (user: updatePersonalInfoDto) => void;
-  updateUserAddress: (user: updateAddressDto) => void;
-  updateUserStudentProfile: (user: updateStudentProfileDto) => void;
-  updateUserWorkerProfile: (user: updateWorkerProfileDto) => void;
-  sendOtp: (emailOrPhone: string) => Promise<void>;
-  verifyOtp: (data: any) => Promise<void>;
-  logout: () => void;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  sendOtp: (email: string) => Promise<void>;
+  verifyOtp: (data: { email: string; otp: string; password: string; firstName: string; lastName: string; phone?: string }) => Promise<void>;
+  logout: () => Promise<void>;
+  refreshUser: () => Promise<void>;
 }
 
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider = ({ children }: { children: ReactNode }) => {
-  const [user, setUser] = useState<UserProfileDTO | null>(null);
+  const [user, setUser] = useState<AuthUser | null>(null);
   const [loading, setLoading] = useState(true);
 
-  // Charger le user au démarrage
   useEffect(() => {
-    const token = localStorage.getItem("token");
-    if (token) {
+    if (getAccessToken()) {
       authService
-        .getProfile("1")
-        .then((profile) => setUser(profile))
+        .me()
+        .then(setUser)
         .catch(() => {
-          localStorage.removeItem("token");
+          clearTokens();
           setUser(null);
         })
         .finally(() => setLoading(false));
@@ -39,92 +34,30 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     }
   }, []);
 
-  const login = async (email: string, password: string) => {
-    const res = await authService.login({ email, password });
-    localStorage.setItem("token", res.token);
-    setUser(res.user);
+  const login = async (email: string, password: string, rememberMe?: boolean) => {
+    const loggedInUser = await authService.login(email, password, rememberMe);
+    setUser(loggedInUser);
   };
 
-  const register = async (data: any) => {
-    await authService.register(data);
+  const sendOtp = async (email: string) => {
+    await authService.sendOtp(email);
   };
 
-  const sendOtp = async (emailOrPhone: string) => {
-    await authService.sendOtp({ emailOrPhone });
-  };
-
-  const verifyOtp = async (data: any) => {
+  const verifyOtp = async (data: { email: string; otp: string; password: string; firstName: string; lastName: string; phone?: string }) => {
     await authService.verifyOtp(data);
   };
 
-  const logout = () => {
-    localStorage.removeItem("token");
+  const logout = async () => {
+    await authService.logout();
     setUser(null);
   };
 
-  const updateUserPersonalInfo = (updatedInfo: updatePersonalInfoDto) => {
-    setUser(prevUser => {
-      if (!prevUser) return prevUser;
-      
-      return {
-        ...prevUser,
-        personalInfo: {
-          ...prevUser.personalInfo,
-          ...updatedInfo
-        }
-      };
-    });
-  };
-
-  const updateUserAddress = (updateInfo: updateAddressDto)=> {
-    setUser(prevUser => {
-      if (!prevUser) return prevUser;
-      
-      return {
-        ...prevUser,
-        address: {
-          ...prevUser.address,
-          ...updateInfo
-        }
-      };
-    }); 
-  };
-
-  const updateUserStudentProfile = (updateInfo: updateStudentProfileDto)=> {
-    setUser(prevUser => {
-      if (!prevUser) return prevUser;
-      
-      return {
-        ...prevUser,
-        studentProfile: {
-          ...prevUser.studentProfile,
-          ...updateInfo
-        }
-      };
-    }); 
-  };
-
-  const updateUserWorkerProfile = (updateInfo: updateWorkerProfileDto)=> {
-    setUser(prevUser => {
-      if (!prevUser) return prevUser;
-      
-      return {
-        ...prevUser,
-        workerProfile: {
-          ...prevUser.workerProfile,
-          ...updateInfo
-        }
-      };
-    }); 
+  const refreshUser = async () => {
+    setUser(await authService.me());
   };
 
   return (
-    <AuthContext.Provider
-      value={{ user, loading, login, register, 
-        sendOtp, verifyOtp, logout, updateUserPersonalInfo,
-        updateUserAddress, updateUserStudentProfile, updateUserWorkerProfile
-       }}
-    >
+    <AuthContext.Provider value={{ user, loading, login, sendOtp, verifyOtp, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

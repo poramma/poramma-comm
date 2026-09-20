@@ -27,7 +27,7 @@ export default function SignUpForm() {
     password: "",
   });
   const navigate = useNavigate();
-  const { register, sendOtp, verifyOtp } = useAuth();
+  const { sendOtp, verifyOtp } = useAuth();
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -84,8 +84,9 @@ export default function SignUpForm() {
 
     try {
       setLoading(true);
+      // verifyOtp crée le compte côté backend (voir AuthContext) — pas
+      // d'appel register() séparé, qui créerait un doublon en conflit.
       await verifyOtp({ ...formData, otp });
-      await register(formData); // création compte backend
       alert("Compte créé avec succès 🎉");
       navigate("/signin");
     } catch (err: any) {
@@ -169,7 +170,14 @@ export default function SignUpForm() {
               <div className="flex items-center gap-3">
                 <Checkbox checked={isChecked} onChange={setIsChecked} />
                 <p className="text-gray-500 dark:text-gray-400">
-                  J'accepte les <span className="text-gray-800 dark:text-white">Termes et Conditions</span>
+                  J'accepte les{" "}
+                  <Link to="/conditions-utilisation" target="_blank" className="text-gray-800 underline dark:text-white">
+                    conditions d'utilisation
+                  </Link>{" "}
+                  et la{" "}
+                  <Link to="/politique-confidentialite" target="_blank" className="text-gray-800 underline dark:text-white">
+                    politique de confidentialité
+                  </Link>
                 </p>
               </div>
               {error && <p className="text-red-500 mt-2">{error}</p>}

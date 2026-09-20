@@ -15,7 +15,7 @@ import {
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import { CheckSquareIcon, IdCardIcon, PlaneIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckSquareIcon, IdCardIcon, MegaphoneIcon, PaletteIcon, PlaneIcon } from "lucide-react";
 
 type NavItem = {
   name: string;
@@ -31,9 +31,24 @@ const navItems: NavItem[] = [
     path: "/dashboard",
   },
   {
+    name: "Annonces",
+    icon: <MegaphoneIcon />,
+    path: "/campagnes",
+  },
+  {
     name:  "Mes demandes",
     icon: <ListIcon />,
     path: "/services/mesdemandes/gerer",
+  },
+  {
+    name: "Mes rendez-vous",
+    icon: <CalendarDaysIcon />,
+    path: "/services/rendez-vous",
+  },
+  {
+    name: "Espace culturel",
+    icon: <PaletteIcon />,
+    path: "/culture",
   },
   {
     name: "Documents d'identité",
@@ -386,31 +401,25 @@ const AppSidebar: React.FC = () => {
           !isExpanded && !isHovered ? "lg:justify-center" : "justify-start"
         }`}
       >
-        <Link to="/">
-          {isExpanded || isHovered || isMobileOpen ? (
-            <>
-              <img
-                className="dark:hidden"
-                src="/images/logo/fivision-logo-icon.svg"
-                alt="Logo"
-                width={80}
-                height={40}
-              />
-              <img
-                className="hidden dark:block"
-                src="/images/logo/fivision-logo.svg"
-                alt="Logo"
-                width={80}
-                height={40}
-              />
-            </>
-          ) : (
+        <Link to="/" className="flex items-center gap-3" aria-label="Poramma — accueil">
+          {/* Le fichier a une marge blanche autour de l'icône verte : on le recadre (scale) dans un carreau
+              arrondi, pour que le logo reste net en clair comme en sombre. Sa taille suit l'état du menu. */}
+          <span
+            className={`relative block shrink-0 overflow-hidden transition-all duration-300 ease-in-out ${
+              isExpanded || isHovered || isMobileOpen ? "h-14 w-14" : "h-11 w-11"
+            }`}
+            style={{ borderRadius: "20%" }}
+          >
             <img
-              src="/images/logo/fivision-logo-icon.svg"
-              alt="Logo"
-              width={32}
-              height={32}
+              src="/images/favicon.png"
+              alt="Poramma"
+              className="h-full w-full scale-[1.32] object-cover"
             />
+          </span>
+          {(isExpanded || isHovered || isMobileOpen) && (
+            <span className="text-xl font-bold tracking-tight text-green-800 dark:text-white">
+              Poramma
+            </span>
           )}
         </Link>
       </div>

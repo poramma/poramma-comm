@@ -1,85 +1,76 @@
-import { useState } from "react";
-import { useNavigate } from "react-router-dom";
+import { useCallback, useEffect, useState } from "react";
+import { Link, useNavigate } from "react-router-dom";
 import { Dropdown } from "../ui/dropdown/Dropdown";
-import { DropdownItem } from "../ui/dropdown/DropdownItem";
-import { Link } from "react-router-dom";
+import { notificationService } from "../../lib/services";
+import type { NotificationItem } from "../../lib/types";
 
-const mockData = [
-  {
-    id: 1,
-    name: "Terry Franci",
-    avatar: "/images/user/user-02.jpg",
-    type: "Project",
-    date: "5 min ago",
-    status: "success",
-  },
-  {
-    id: 2,
-    name: "Alena Franci",
-    avatar: "/images/user/user-03.jpg",
-    type: "Project",
-    date: "8 min ago",
-    status: "success",
-  },
-  {
-    id: 3,
-    name: "Jocelyn Kenter",
-    avatar: "/images/user/user-04.jpg",
-    type: "Project",
-    date: "15 min ago",
-    status: "success",
-  },
-  {
-    id: 4,
-    name: "Brandon Philips",
-    avatar: "/images/user/user-05.jpg",
-    type: "Project",
-    date: "1 hr ago",
-    status: "error",
-  },
-];
+const POLL_MS = 60_000;
+/** Événement window émis par la page Notifications après lecture — voir NotificationsPage. */
+const NOTIFICATIONS_CHANGED = "notifications-changed";
+
+const TYPE_LABELS: Record<string, string> = {
+  DEMANDE: "Demande",
+  RDV: "Rendez-vous",
+  DOSSIER: "Dossier",
+  CAMPAGNE: "Annonce",
+  MESSAGE: "Message",
+};
+
+const formatDate = (iso: string) => new Date(iso).toLocaleString("fr-FR", { dateStyle: "short", timeStyle: "short" });
 
 export default function NotificationDropdown() {
   const [isOpen, setIsOpen] = useState(false);
-  const [notifying, setNotifying] = useState(true);
+  const [items, setItems] = useState<NotificationItem[]>([]);
+  const [unreadCount, setUnreadCount] = useState(0);
   const navigate = useNavigate();
 
-  function toggleDropdown() {
+  const refresh = useCallback(async () => {
+    try {
+      const { notifications, unreadCount } = await notificationService.fetch();
+      setItems(notifications.slice(0, 6));
+      setUnreadCount(unreadCount);
+    } catch {
+      // Silencieux : le menu reste utilisable, la prochaine relève réessaiera.
+    }
+  }, []);
+
+  useEffect(() => {
+    refresh();
+    const timer = setInterval(refresh, POLL_MS);
+    return () => clearInterval(timer);
+  }, [refresh]);
+
+  const toggleDropdown = () => {
+    if (!isOpen) refresh();
     setIsOpen(!isOpen);
-  }
-
-  function closeDropdown() {
-    setIsOpen(false);
-    navigate('/notifications');
-  }
-
-  const handleClick = () => {
-    toggleDropdown();
-    setNotifying(false);
   };
+
+  // La page Notifications ouvre le détail et marque la notification comme lue.
+  const openItem = (n: NotificationItem) => {
+    setIsOpen(false);
+    navigate(`/notifications?open=${encodeURIComponent(n.id)}`);
+  };
+
+  // Rafraîchit la pastille dès que la page Notifications lit / marque des notifications.
+  useEffect(() => {
+    window.addEventListener(NOTIFICATIONS_CHANGED, refresh);
+    return () => window.removeEventListener(NOTIFICATIONS_CHANGED, refresh);
+  }, [refresh]);
 
   return (
     <div className="relative ">
       <button
         type="button"
-        title="Toggle Dropdown"
+        title="Notifications"
         className="relative flex items-center justify-center text-gray-500 transition-colors bg-white border border-gray-200 rounded-full dropdown-toggle hover:text-gray-700 h-11 w-11 hover:bg-gray-100 dark:border-gray-800 dark:bg-gray-900 dark:text-gray-400 dark:hover:bg-gray-800 dark:hover:text-white"
-        onClick={handleClick}
+        onClick={toggleDropdown}
       >
-        <span
-          className={`absolute right-0 top-0.5 z-10 h-2 w-2 rounded-full bg-orange-400 ${
-            !notifying ? "hidden" : "flex"
-          }`}
-        >
-          <span className="absolute inline-flex w-full h-full bg-orange-400 rounded-full opacity-75 animate-ping"></span>
-        </span>
-        <svg
-          className="fill-current"
-          width="20"
-          height="20"
-          viewBox="0 0 20 20"
-          xmlns="http://www.w3.org/2000/svg"
-        >
+        {unreadCount > 0 && (
+          <span className="absolute -right-1 -top-1 z-10 flex h-5 min-w-5 items-center justify-center rounded-full bg-orange-500 px-1 text-[11px] font-semibold text-white">
+            {unreadCount > 9 ? "9+" : unreadCount}
+          </span>
+        )}
+        <svg className="fill-current" width="20" height="20" viewBox="0 0 20 20" xmlns="http://www.w3.org/2000/svg">
           <path
             fillRule="evenodd"
             clipRule="evenodd"
@@ -90,85 +81,43 @@ export default function NotificationDropdown() {
       </button>
       <Dropdown
         isOpen={isOpen}
-        onClose={closeDropdown}
-        className="absolute right-[-220px] mt-[17px] flex h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px]"
+        onClose={() => setIsOpen(false)}
+        className="absolute right-[-220px] mt-[17px] flex max-h-[480px] w-[350px] flex-col rounded-2xl border border-gray-200 bg-white p-3 shadow-theme-lg dark:border-gray-800 dark:bg-gray-dark sm:w-[361px]"
       >
         <div className="flex items-center justify-between pb-3 mb-3 border-b border-gray-100 dark:border-gray-700">
-          <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200 hover:text-gray-700 dark:hover:text-gray-200 flex justify-center">
-            Notification
-          </h5>
-          <button
-            type="button"
-            title="Toggle Dropdown"
-            onClick={toggleDropdown}
-            className="text-gray-500 transition dark:text-gray-400 hover:text-gray-700 dark:hover:text-gray-200"
-          >
-            <svg
-              className="fill-current"
-              width="24"
-              height="24"
-              viewBox="0 0 24 24"
-              xmlns="http://www.w3.org/2000/svg"
-            >
-              <path
-                fillRule="evenodd"
-                clipRule="evenodd"
-                d="M6.21967 7.28131C5.92678 6.98841 5.92678 6.51354 6.21967 6.22065C6.51256 5.92775 6.98744 5.92775 7.28033 6.22065L11.999 10.9393L16.7176 6.22078C17.0105 5.92789 17.4854 5.92788 17.7782 6.22078C18.0711 6.51367 18.0711 6.98855 17.7782 7.28144L13.0597 12L17.7782 16.7186C18.0711 17.0115 18.0711 17.4863 17.7782 17.7792C17.4854 18.0721 17.0105 18.0721 16.7176 17.7792L11.999 13.0607L7.28033 17.7794C6.98744 18.0722 6.51256 18.0722 6.21967 17.7794C5.92678 17.4865 5.92678 17.0116 6.21967 16.7187L10.9384 12L6.21967 7.28131Z"
-                fill="currentColor"
-              />
-            </svg>
-          </button>
+          <h5 className="text-lg font-semibold text-gray-800 dark:text-gray-200">Notifications</h5>
+          {unreadCount > 0 && <span className="text-theme-xs text-gray-500 dark:text-gray-400">{unreadCount} non lue{unreadCount > 1 ? "s" : ""}</span>}
         </div>
         <ul className="flex flex-col h-auto overflow-y-auto custom-scrollbar">
-          {mockData.map((item) => (
-            <DropdownItem
-              key={item.id}
-              onItemClick={closeDropdown}
-              className="flex gap-3 rounded-lg border-b border-gray-100 p-3 px-4.5 py-3 hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
-            >
-              <span className="relative block w-full h-10 rounded-full z-1 max-w-10">
-                <img
-                  width={40}
-                  height={40}
-                  src={item.avatar}
-                  alt="User"
-                  className="w-full overflow-hidden rounded-full"
-                />
-                <span
-                  className={`absolute bottom-0 right-0 z-10 h-2.5 w-full max-w-2.5 rounded-full border-[1.5px] border-white bg-${item.status}-500 dark:border-gray-900`}
-                ></span>
-              </span>
-
-              <span className="block">
-                <span className="mb-1.5 block  space-x-1 text-theme-sm text-gray-500 dark:text-gray-400">
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    {item.name}
-                  </span>
-                  <span>requests permission to change</span>
-                  <span className="font-medium text-gray-800 dark:text-white/90">
-                    {item.type}
-                  </span>
+          {items.length === 0 && (
+            <li className="px-4 py-6 text-center text-theme-sm text-gray-500 dark:text-gray-400">Aucune notification pour l'instant.</li>
+          )}
+          {items.map((n) => (
+            <li key={n.id}>
+              <button
+                type="button"
+                onClick={() => openItem(n)}
+                className="flex w-full gap-3 rounded-lg border-b border-gray-100 px-4 py-3 text-left hover:bg-gray-100 dark:border-gray-800 dark:hover:bg-white/5"
+              >
+                <span className={`mt-1.5 h-2 w-2 shrink-0 rounded-full ${n.status === "SENT" ? "bg-orange-500" : "bg-transparent"}`} />
+                <span className="block min-w-0">
+                  <span className="mb-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">{TYPE_LABELS[n.type] ?? "Information"}</span>
+                  <span className={`block text-theme-sm ${n.status === "SENT" ? "font-semibold" : "font-medium"} text-gray-800 dark:text-white/90`}>{n.title}</span>
+                  <span className="block text-theme-xs text-gray-500 dark:text-gray-400 line-clamp-2">{n.message}</span>
+                  <span className="mt-1 block text-theme-xs text-gray-400">{formatDate(n.createdAt)}</span>
                 </span>
-
-                <span className="flex items-center gap-2 text-gray-500 text-theme-xs dark:text-gray-400">
-                  <span>{item.date}</span>
-                </span>
-              </span>
-            </DropdownItem>
+              </button>
+            </li>
           ))}
-          {/* Add more items as needed */}
         </ul>
         <Link
           to="/notifications"
+          onClick={() => setIsOpen(false)}
           className="flex items-center justify-center w-full px-4 py-3 text-theme-sm font-medium text-gray-500 hover:text-gray-700 dark:text-gray-400 dark:hover:text-gray-200"
         >
-          <span className="flex items-center gap-2"
-          onClick={closeDropdown}
-          >
-            Voir toutes les notifications
-          </span>
+          Voir toutes les notifications
         </Link>
       </Dropdown>
-    </div>  
-    );
+    </div>
+  );
 }

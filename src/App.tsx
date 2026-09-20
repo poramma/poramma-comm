@@ -1,8 +1,14 @@
-import { BrowserRouter as Router, Routes, Route } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
+import ResetPassword from "./pages/AuthPages/ResetPassword";
 import NotFound from "./pages/OtherPage/NotFound";
 import UserProfiles from "./pages/UserProfiles";
+import SettingsPage from "./pages/Settings/SettingsPage";
+import SupportPage from "./pages/Support/SupportPage";
+import SupportTicketPage from "./pages/Support/SupportTicketPage";
+import TermsPage from "./pages/Legal/TermsPage";
+import PrivacyPage from "./pages/Legal/PrivacyPage";
 import Videos from "./pages/UiElements/Videos";
 import Images from "./pages/UiElements/Images";
 import Alerts from "./pages/UiElements/Alerts";
@@ -18,7 +24,11 @@ import { ScrollToTop } from "./components/common/ScrollToTop";
 import Home from "./pages/Dashboard/Home";
 import MyRequestsManager from "./pages/mesdemandes/MyRequestsManager";
 import RequestDetails from "./pages/mesdemandes/RequestDetails";
+import NewRequestPage from "./pages/mesdemandes/NewRequestPage";
+import ServiceRoute from "./pages/services/ServiceRoute";
 import NotificationsPage from "./pages/notifications/NotificationsPage";
+import CampagnesPage from "./pages/campagnes/CampagnesPage";
+import CampagneDetailPage from "./pages/campagnes/CampagneDetailPage";
 import HomePage from "./pages/welcomePage/HomePage";
 import { DemandePasseport, RenouvellementPasseport, PasseportMineur, RetraitPasseport, PasseportOrdinaire } from "./pages/services/passeport";
 import CarteConsulaireNouvelle from "./pages/services/carte-consulaire/Nouvelle";
@@ -33,8 +43,11 @@ import { ProcurationMandatsSpeciaux, ProcurationRetraitPasseport, ProcurationRet
 import BookAppointment from "./pages/appointments/BookAppointement";
 import MyAppointments from "./pages/appointments/MyAppointments";
 import { EnrolementCarteBiometrique, EnrolementNINA, FicheEtatCivil, FicheIndividuelleNINA, RetraitCarteBiometrique } from "./pages/services/document-identite";
-import StudentSpace from "./pages/student/StudentSpace";
-import BasicHomePage from "./pages/student/BasicHomePage";
+import RegistrationPage from "./pages/registration/RegistrationPage";
+import CulturePage from "./pages/Culture/CulturePage";
+import CultureRequestPage from "./pages/Culture/CultureRequestPage";
+import CultureNewThreadPage from "./pages/Culture/CultureNewThreadPage";
+import CultureThreadPage from "./pages/Culture/CultureThreadPage";
 
 export default function App() {
   return (
@@ -54,7 +67,15 @@ export default function App() {
           <Route element={<AppLayout />}>
             <Route index path="/dashboard" element={<Home />} />
             <Route path="/notifications" element={<NotificationsPage />} />
-            
+            <Route path="/campagnes" element={<CampagnesPage />} />
+            <Route path="/campagnes/:id" element={<CampagneDetailPage />} />
+
+            {/* Espace culturel : le Conseiller Culturel, à visage découvert */}
+            <Route path="/culture" element={<CulturePage />} />
+            <Route path="/culture/demande" element={<CultureRequestPage />} />
+            <Route path="/culture/echanges/nouveau" element={<CultureNewThreadPage />} />
+            <Route path="/culture/echanges/:id" element={<CultureThreadPage />} />
+
             {/* Mes Demandes */}
             <Route
               path="/services/*"
@@ -69,6 +90,8 @@ export default function App() {
                     path="mesdemandes/details/:id"
                     element={<RequestDetails />}
                   />
+                  <Route path="nouvelle-demande" element={<NewRequestPage />} />
+                  <Route path="demande/:subServiceId" element={<ServiceRoute />} />
                   {/* Services Rendez-vous*/}
                   <Route path="rendez-vous" element={<MyAppointments />} />
                   <Route path="rendez-vous/nouveau" element={<BookAppointment />} />
@@ -166,9 +189,13 @@ export default function App() {
             </Route>
 
             {/* Others Page */}
-            <Route path="student/home" element={<BasicHomePage />} />
+            <Route path="/enregistrement" element={<RegistrationPage />} />
+            <Route path="student/home" element={<Navigate to="/dashboard" replace />} />
             
             <Route path="/profile" element={<UserProfiles />} />
+            <Route path="/settings" element={<SettingsPage />} />
+            <Route path="/support" element={<SupportPage />} />
+            <Route path="/support/tickets/:id" element={<SupportTicketPage />} />
             <Route path="/calendar" element={<Calendar />} />
             <Route path="/blank" element={<Blank />} />
 
@@ -189,9 +216,14 @@ export default function App() {
           </Route>
 
           {/* Auth Layout */}
-          <Route path="/auth/register" element={<StudentSpace/>} />
+          <Route path="/auth/register" element={<Navigate to="/enregistrement" replace />} />
           <Route path="/signin" element={<SignIn />} />
           <Route path="/signup" element={<SignUp />} />
+          <Route path="/reset-password" element={<ResetPassword />} />
+
+          {/* Pages légales — publiques */}
+          <Route path="/conditions-utilisation" element={<TermsPage />} />
+          <Route path="/politique-confidentialite" element={<PrivacyPage />} />
 
           {/* Fallback Route */}
           <Route path="*" element={<NotFound />} />

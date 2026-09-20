@@ -1,131 +1,58 @@
-// src/pages/DashboardStudent.tsx
-import React, { useState, useEffect } from 'react';
-import { useNavigate } from 'react-router-dom';
-import Badge  from '../../components/ui/badge/Badge';
-import Button  from '../../components/ui/button/Button';
-import { useAuth } from '../../context/AuthContext';
-import { PageLoader } from '../../components/ui/loader/Loader';
- import {
-  User,
-  Clock,
-  CheckCircle,
-  XCircle,
-  FileText,
-  BellRing,
-  DownloadCloud,
-  Inbox,
-} from "lucide-react"; // icons (fallback lucide)
+import { useEffect, useState } from "react";
+import { useNavigate } from "react-router-dom";
+import { Clock, CheckCircle, XCircle, FileText, BellRing, Inbox, Calendar, Megaphone } from "lucide-react";
+import Badge from "../../components/ui/badge/Badge";
+import Button from "../../components/ui/button/Button";
+import RegistrationStatusCard from "../../components/registration/RegistrationStatusCard";
+import { useAuth } from "../../context/AuthContext";
+import { campagneService, demandeService, documentService, notificationService, rendezvousService } from "../../lib/services";
+import type { Campagne, Demande, MyDocument, NotificationItem, RendezVous } from "../../lib/types";
 
-/**
- * Dashboard étudiant - React + TypeScript + Tailwind
- *
- * Remarques d'intégration :
- * - Remplacer les imports de components (Avatar, Badge, Button, Modal) si votre repo TailAdmin a des chemins différents.
- * - Les données ci-dessous sont des mock JSON. Remplace par l'appel à ton API (fetch/axios) ou contexte d'auth.
- */
+const IN_PROGRESS = ["SUBMITTED", "IN_REVIEW", "UNDER_VERIFICATION", "ADDITIONAL_INFO_REQUIRED"];
+const DONE = ["APPROVED", "COMPLETED"];
 
-/* ---------------------------
-   Types
-   ---------------------------*/
-type RequestStatus = "EN_COURS" | "VALIDEE" | "REJETEE" | "EN_ATTENTE";
-
-type RequestRow = {
-  id: string;
-  service: string;
-  submittedAt: string; // ISO
-  status: RequestStatus;
+const STATUS_LABELS: Record<string, { label: string; color: "brand" | "success" | "error" | "warning" | "light" }> = {
+  DRAFT: { label: "Brouillon", color: "light" },
+  SUBMITTED: { label: "Soumise", color: "brand" },
+  IN_REVIEW: { label: "En cours d'examen", color: "brand" },
+  ADDITIONAL_INFO_REQUIRED: { label: "Complément requis", color: "warning" },
+  UNDER_VERIFICATION: { label: "En vérification", color: "brand" },
+  APPROVED: { label: "Approuvée", color: "success" },
+  REJECTED: { label: "Rejetée", color: "error" },
+  COMPLETED: { label: "Terminée", color: "success" },
+  CANCELLED: { label: "Annulée", color: "light" },
+  ARCHIVED: { label: "Archivée", color: "light" },
 };
 
-type Interaction = {
-  id: string;
-  date: string; // ISO
-  type: "message" | "rendez-vous" | "document";
-  summary: string;
-  link?: string;
+const DOC_STATUS_LABELS: Record<string, string> = {
+  UPLOADED: "Reçu",
+  IN_REVIEW: "En cours de vérification",
+  ACCEPTED: "Accepté",
+  REJECTED: "Refusé",
+  EXPIRED: "Expiré",
 };
 
-type NotificationItem = {
-  id: string;
-  type: "rappel" | "alerte" | "info";
-  text: string;
-  datetime: string;
+const RDV_STATUS: Record<string, { label: string; color: "brand" | "success" | "error" | "warning" | "light" }> = {
+  PENDING: { label: "En attente", color: "warning" },
+  CONFIRMED: { label: "Confirmé", color: "success" },
+  CHECKED_IN: { label: "Enregistré", color: "brand" },
+  IN_PROGRESS: { label: "En cours", color: "brand" },
+  COMPLETED: { label: "Terminé", color: "light" },
+  MISSED: { label: "Manqué", color: "error" },
+  CANCELLED_BY_USER: { label: "Annulé", color: "light" },
+  CANCELLED_BY_AGENT: { label: "Annulé par l'ambassade", color: "error" },
+  NO_SHOW: { label: "Absence", color: "error" },
 };
+const RDV_UPCOMING = ["PENDING", "CONFIRMED", "CHECKED_IN", "IN_PROGRESS"];
 
-type DocumentItem = {
-  id: string;
-  name: string;
-  status: "PRET" | "A_COMPLETER" | "EN_ATTENTE_VALIDATION";
-  downloadable: boolean;
-};
+const formatDate = (iso?: string) => (iso ? new Date(iso).toLocaleDateString("fr-FR") : "");
+/** Date sans heure (AAAA-MM-JJ) — évite le décalage de fuseau d'un `new Date("AAAA-MM-JJ")`. */
+const formatDay = (day: string) => new Date(`${day}T00:00:00`).toLocaleDateString("fr-FR");
 
-/* ---------------------------
-   Mock data
-   ---------------------------*/
-const mockUserName = "Moussa Diallo";
-
-const statCards = [
-  { id: "in_progress", label: "En cours", value: 3, icon: Clock },
-  { id: "validated", label: "Validées", value: 12, icon: CheckCircle },
-  { id: "rejected", label: "Rejetées", value: 1, icon: XCircle },
-  { id: "pending", label: "En attente", value: 2, icon: Inbox },
-];
-
-const mockRequests: RequestRow[] = [
-  { id: "2025-001", service: "Renouvellement carte consulaire", submittedAt: "2025-07-30T10:15:00Z", status: "EN_COURS" },
-  { id: "2025-002", service: "Attestation d'études", submittedAt: "2025-06-14T09:00:00Z", status: "VALIDEE" },
-  { id: "2025-003", service: "Demande de bourse", submittedAt: "2025-07-01T14:20:00Z", status: "EN_ATTENTE" },
-  { id: "2025-004", service: "Certificat de perte", submittedAt: "2025-05-04T08:10:00Z", status: "REJETEE" },
-];
-
-const mockInteractions: Interaction[] = [
-  { id: "i1", date: "2025-08-01T08:00:00Z", type: "message", summary: "Réponse sur la liste des documents requis", link: "#" },
-  { id: "i2", date: "2025-07-28T11:30:00Z", type: "rendez-vous", summary: "Rdv validé pour le 2025-08-05 09:00", link: "#" },
-  { id: "i3", date: "2025-07-15T15:45:00Z", type: "document", summary: "Document reçu : preuve d'inscription", link: "#" },
-];
-
-const mockNotifications: NotificationItem[] = [
-  { id: "n1", type: "rappel", text: "Compléter la pièce: justificatif de domicile", datetime: "2025-08-05T09:00:00Z" },
-  { id: "n2", type: "alerte", text: "Temps limite pour dépôt de dossier proche (72h)", datetime: "2025-08-03T11:00:00Z" },
-  { id: "n3", type: "info", text: "La permanence consulaire sera fermée le 14 août", datetime: "2025-08-10T00:00:00Z" },
-];
-
-const mockDocuments: DocumentItem[] = [
-  { id: "d1", name: "Attestation d'inscription (2025)", status: "PRET", downloadable: true },
-  { id: "d2", name: "Formulaire demande carte consulaire", status: "A_COMPLETER", downloadable: false },
-  { id: "d3", name: "Reçu paiement (2024)", status: "EN_ATTENTE_VALIDATION", downloadable: true },
-];
-
-/* ---------------------------
-   Small helpers
-   ---------------------------*/
-const statusBadge = (status: RequestStatus) => {
-  switch (status) {
-    case "EN_COURS":
-      return <Badge variant="outline" color="info">En cours</Badge>;
-    case "VALIDEE":
-      return <Badge variant="solid" color="success">Validée</Badge>;
-    case "REJETEE":
-      return <Badge variant="solid" color="error">Rejetée</Badge>;
-    case "EN_ATTENTE":
-      return <Badge variant="outline" color="warning">En attente</Badge>;
-    default:
-      return <Badge>—</Badge>;
-  }
-};
-
-const formatDate = (iso?: string) => {
-  if (!iso) return "";
-  const d = new Date(iso);
-  return d.toLocaleString();
-};
-
-/* ---------------------------
-   Reusable small components
-   ---------------------------*/
-const StatCard: React.FC<{ icon: React.ComponentType<{ className?: string }>; label: string; value: number }> = ({ icon: IconComp, label, value }) => (
+const StatCard = ({ icon: Icon, label, value }: { icon: React.ComponentType<{ className?: string }>; label: string; value: number }) => (
   <div className="bg-white dark:bg-slate-800 shadow-md rounded-xl p-6 flex items-center gap-4">
     <div className="p-4 rounded-full bg-brand-50 dark:bg-brand-900/20">
-      <IconComp className="w-6 h-6 text-brand-600 dark:text-brand-400" />
+      <Icon className="w-6 h-6 text-brand-600 dark:text-brand-400" />
     </div>
     <div className="flex-1">
       <div className="text-sm text-slate-500 dark:text-slate-300">{label}</div>
@@ -134,212 +61,212 @@ const StatCard: React.FC<{ icon: React.ComponentType<{ className?: string }>; la
   </div>
 );
 
-/* ---------------------------
-   Main page
-   ---------------------------*/
-export default function DashboardStudent() {
-  
-  const userName = mockUserName;
+/** Tableau de bord du membre : statut d'enregistrement, ses demandes, ses pièces, ses notifications — données réelles. */
+export default function DashboardHome() {
   const navigate = useNavigate();
-  const [loading, setLoading] = useState(false);
   const { user } = useAuth();
-  const [data, setData] = useState({});
+  const [demandes, setDemandes] = useState<Demande[]>([]);
+  const [documents, setDocuments] = useState<MyDocument[]>([]);
+  const [notifications, setNotifications] = useState<NotificationItem[]>([]);
+  const [rendezVous, setRendezVous] = useState<RendezVous[]>([]);
+  const [campagnes, setCampagnes] = useState<Campagne[]>([]);
 
   useEffect(() => {
-    // Simulation de chargement de données
-    const fetchData = async () => {
-      setLoading(true);
-      try {
-        // Vos appels API ici
-        await new Promise(resolve => setTimeout(resolve, 5000));
-        setData({/* vos données */});
-      } catch (error) {
-        console.error('Erreur de chargement:', error);
-      } finally {
-        setLoading(false);
-      }
-    };
-
-    fetchData();
+    // Le tableau de bord reste utilisable même si un des blocs échoue.
+    demandeService.listMine().then(setDemandes).catch(() => undefined);
+    rendezvousService.listMine().then(setRendezVous).catch(() => undefined);
+    campagneService.list({ limit: 3 }).then(setCampagnes).catch(() => undefined);
+    documentService.listMine().then(setDocuments).catch(() => undefined);
+    notificationService.list().then(setNotifications).catch(() => undefined);
   }, []);
 
-  if (loading) {
-    return <PageLoader />;
-  }
-  
+  // Les rendez-vous à venir d'abord (le plus proche en tête), puis les plus récents de l'historique.
+  const when = (r: RendezVous) => `${r.date} ${r.startTime}`;
+  const recentRendezVous = [
+    ...rendezVous.filter((r) => RDV_UPCOMING.includes(r.status)).sort((a, b) => when(a).localeCompare(when(b))),
+    ...rendezVous.filter((r) => !RDV_UPCOMING.includes(r.status)).sort((a, b) => when(b).localeCompare(when(a))),
+  ].slice(0, 5);
+
+  const firstName = user?.profile?.firstName;
+  const inProgress = demandes.filter((d) => IN_PROGRESS.includes(d.status)).length;
+  const done = demandes.filter((d) => DONE.includes(d.status)).length;
+  const rejected = demandes.filter((d) => d.status === "REJECTED").length;
 
   return (
     <div className="p-2 lg:p-1 space-y-6">
-      {/* Header */}
-      <header className="flex items-start justify-between flex-wrap gap-4">
-        <div>
-          <h1 className="md:text-2xl text-xl font-extrabold text-slate-900 dark:text-white">Espace Étudiant</h1>
-          <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">
-            Un aperçu en temps réel de vos démarches et documents
-          </p>
-          {/* The text below is very important so it is bold. */}
-          <p className="mt-1 text-sm font-bold text-slate-600 dark:text-slate-400">
-            Enregistrez-vous au près de l'ambassade pour accéder à votre espace et gérer vos démarches.
-          </p>
-        </div>
-        <div>
-          <Button variant="primary" onClick={() => navigate("/auth/register")}>Je m'enregistre</Button>
-        </div>
+      <header>
+        <h1 className="md:text-2xl text-xl font-extrabold text-slate-900 dark:text-white">
+          {firstName ? `Bonjour ${firstName}` : "Bienvenue"}
+        </h1>
+        <p className="mt-1 text-sm text-slate-600 dark:text-slate-400">Un aperçu de vos démarches, de vos pièces et de vos notifications.</p>
       </header>
 
-      {/* Stat Cards */}
-      <section>
-        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
-          {statCards.map((c) => (
-            <StatCard key={c.id} icon={c.icon} label={c.label} value={c.value} />
-          ))}
-        </div>
+      <RegistrationStatusCard />
+
+      <section className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4">
+        <StatCard icon={Clock} label="En cours" value={inProgress} />
+        <StatCard icon={CheckCircle} label="Terminées" value={done} />
+        <StatCard icon={XCircle} label="Rejetées" value={rejected} />
+        <StatCard icon={Inbox} label="Total" value={demandes.length} />
       </section>
 
       <div className="grid grid-cols-1 lg:grid-cols-3 gap-6">
-        {/* Left column: Requests table + Documents */}
         <div className="lg:col-span-2 space-y-6">
-          {/* Requests table */}
-          <section className="bg-white dark:bg-slate-800 shadow-sm rounded-lg p-2">
-            <div className="flex items-center justify-between mb-4">
-              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Statut des demandes</h2>
-              <Button variant="ghost" onClick={() => { /* navigate to all requests */ }}>Voir toutes mes demandes</Button>
-            </div>
-
-            {/* table */}
-            <div className="overflow-x-auto">
-              <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
-                <thead>
-                  <tr className="text-left text-xs text-slate-500 uppercase">
-                    <th className="px-3 py-2">N° dossier</th>
-                    <th className="px-3 py-2">Type de service</th>
-                    <th className="px-3 py-2">Date de soumission</th>
-                    <th className="px-3 py-2">Statut</th>
-                  </tr>
-                </thead>
-                <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
-                  {mockRequests.map((r) => (
-                    <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40">
-                      <td className="px-1 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">{r.id}</td>
-                      <td className="px-1 py-3 text-sm text-slate-600 dark:text-slate-300">{r.service}</td>
-                      <td className="px-1 py-3 text-sm text-slate-500 dark:text-slate-400">{formatDate(r.submittedAt)}</td>
-                      <td className="py-3">{statusBadge(r.status)}</td>
-                    </tr>
-                  ))}
-                </tbody>
-              </table>
-            </div>
-
-            {/* Pagination placeholder - TailAdmin fournit un composant Pagination */}
-            <div className="mt-4 flex justify-end">
-              <div className="text-sm text-slate-500 dark:text-slate-400">1–{mockRequests.length} sur {mockRequests.length}</div>
-            </div>
-          </section>
-
-          {/* Documents officiels */}
           <section className="bg-white dark:bg-slate-800 shadow-sm rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
-              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Documents officiels</h3>
-              <Button size="sm" variant="outline"
-                onClick={() => navigate("/services/mesdemandes/gerer")}>
-              Gérer mes documents</Button>
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Mes dernières demandes</h2>
+              <Button variant="ghost" onClick={() => navigate("/services/mesdemandes/gerer")}>Voir toutes mes demandes</Button>
             </div>
+            {demandes.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Vous n'avez pas encore de demande.</p>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-500 uppercase">
+                      <th className="px-3 py-2">N° dossier</th>
+                      <th className="px-3 py-2">Service</th>
+                      <th className="px-3 py-2">Soumission</th>
+                      <th className="px-3 py-2">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {demandes.slice(0, 5).map((d) => {
+                      const s = STATUS_LABELS[d.status] ?? { label: d.status, color: "light" as const };
+                      return (
+                        <tr
+                          key={d.id}
+                          className="hover:bg-slate-50 dark:hover:bg-slate-900/40 cursor-pointer"
+                          onClick={() => navigate(`/services/mesdemandes/details/${d.id}`)}
+                        >
+                          <td className="px-3 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">{d.dossierNumber}</td>
+                          <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-300">{d.subService?.name ?? "—"}</td>
+                          <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">{formatDate(d.submittedAt)}</td>
+                          <td className="px-3 py-3">
+                            <Badge variant="outline" color={s.color}>{s.label}</Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
 
-            <ul className="space-y-3">
-              {mockDocuments.map((doc) => (
-                <li key={doc.id} className="flex lg:flex-row flex-col items-center justify-between gap-4 p-3 rounded-md hover:bg-slate-50 dark:hover:bg-slate-900/30">
-                  <div className="flex items-center gap-3">
+          <section className="bg-white dark:bg-slate-800 shadow-sm rounded-lg p-4">
+            <div className="flex items-center justify-between mb-4">
+              <h2 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Mes rendez-vous récents</h2>
+              <Button variant="ghost" onClick={() => navigate("/services/rendez-vous")}>Voir tous mes rendez-vous</Button>
+            </div>
+            {recentRendezVous.length === 0 ? (
+              <div className="flex flex-col sm:flex-row sm:items-center gap-3">
+                <p className="text-sm text-slate-500 dark:text-slate-400">Vous n'avez pas encore de rendez-vous.</p>
+                <Button size="sm" variant="outline" onClick={() => navigate("/services/rendez-vous/nouveau")}>
+                  <Calendar className="w-4 h-4 mr-2" /> Prendre un rendez-vous
+                </Button>
+              </div>
+            ) : (
+              <div className="overflow-x-auto">
+                <table className="min-w-full divide-y divide-slate-200 dark:divide-slate-700">
+                  <thead>
+                    <tr className="text-left text-xs text-slate-500 uppercase">
+                      <th className="px-3 py-2">Service</th>
+                      <th className="px-3 py-2">Date et heure</th>
+                      <th className="px-3 py-2">Ticket</th>
+                      <th className="px-3 py-2">Statut</th>
+                    </tr>
+                  </thead>
+                  <tbody className="divide-y divide-slate-100 dark:divide-slate-700">
+                    {recentRendezVous.map((r) => {
+                      const s = RDV_STATUS[r.status] ?? { label: r.status, color: "light" as const };
+                      return (
+                        <tr key={r.id} className="hover:bg-slate-50 dark:hover:bg-slate-900/40 cursor-pointer" onClick={() => navigate("/services/rendez-vous")}>
+                          <td className="px-3 py-3 text-sm font-medium text-slate-800 dark:text-slate-100">{r.subService?.name ?? "—"}</td>
+                          <td className="px-3 py-3 text-sm text-slate-600 dark:text-slate-300">
+                            {formatDay(r.date)} à {r.startTime}
+                          </td>
+                          <td className="px-3 py-3 text-sm text-slate-500 dark:text-slate-400">{r.ticketId}</td>
+                          <td className="px-3 py-3">
+                            <Badge variant="outline" color={s.color}>{s.label}</Badge>
+                          </td>
+                        </tr>
+                      );
+                    })}
+                  </tbody>
+                </table>
+              </div>
+            )}
+          </section>
+
+          <section className="bg-white dark:bg-slate-800 shadow-sm rounded-lg p-4">
+            <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100 mb-4">Mes pièces déposées</h3>
+            {documents.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Aucune pièce déposée pour l'instant.</p>
+            ) : (
+              <ul className="space-y-3">
+                {documents.slice(0, 6).map((doc) => (
+                  <li key={doc.id} className="flex items-center gap-3">
                     <FileText className="w-5 h-5 text-slate-600 dark:text-slate-300" />
                     <div>
-                      <div className="font-medium text-slate-800 dark:text-slate-100">{doc.name}</div>
-                      <div className="text-xs text-slate-500 dark:text-slate-400">
-                        {doc.status === "PRET" ? "Prêt" : doc.status === "A_COMPLETER" ? "À compléter" : "En attente de validation"}
-                      </div>
+                      <div className="font-medium text-slate-800 dark:text-slate-100">{doc.file?.originalName ?? "Document"}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{DOC_STATUS_LABELS[doc.status] ?? doc.status}</div>
                     </div>
-                  </div>
-
-                  <div className="flex items-center gap-2">
-                    {doc.downloadable ? (
-                      <Button size="sm" onClick={() => { /* download action */ }}>
-                        <DownloadCloud className="w-4 h-4 mr-2" /> Télécharger
-                      </Button>
-                    ) : (
-                      <Button size="sm" variant="ghost" onClick={() => { /* complete action */ }}>Compléter</Button>
-                    )}
-                  </div>
-                </li>
-              ))}
-            </ul>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </div>
 
-        {/* Right column: Interactions + Notifications */}
         <aside className="space-y-6">
-          {/* Interactions */}
-          <section className="bg-white dark:bg-slate-800 shadow-md rounded-xl p-6">
+          <section className="bg-white dark:bg-slate-800 shadow-sm rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold md:text-lg text-base dark:text-white ">Rendez-vous</h4>
-              <Button size="sm" variant="link"
-                onClick={() => { navigate("/services/rendez-vous") }}>
-                Voir tout
-              </Button>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Annonces</h3>
+              <Button size="sm" variant="ghost" onClick={() => navigate("/campagnes")}>Tout voir</Button>
             </div>
-            <ul className="space-y-3">
-              {mockInteractions.map((it) => (
-                <li key={it.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/40">
-                  <div className="p-2 rounded-full bg-brand-50 dark:bg-brand-900/20">
-                    {it.type === "message" && <User className="w-5 h-5 text-brand-600 " />}
-                    {it.type === "rendez-vous" && <Clock className="w-5 h-5 text-brand-600" />}
-                    {it.type === "document" && <FileText className="w-5 h-5 text-brand-600" />}
-                  </div>
-                  <div>
-                    <div className="font-medium dark:text-white">{it.summary}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{formatDate(it.date)}</div>
-                  </div>
-                  
-                </li>
-              ))}
-            </ul>
+            {campagnes.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Aucune annonce pour le moment.</p>
+            ) : (
+              <ul className="space-y-3">
+                {campagnes.map((c) => (
+                  <li key={c.id}>
+                    <button type="button" onClick={() => navigate(`/campagnes/${c.id}`)} className="flex w-full items-start gap-3 text-left">
+                      <Megaphone className="w-4 h-4 mt-1 shrink-0 text-brand-600" />
+                      <span className="min-w-0">
+                        <span className="block text-sm font-medium text-slate-800 dark:text-slate-100 line-clamp-2">{c.title}</span>
+                        <span className="block text-xs text-slate-500 dark:text-slate-400">{formatDate(c.publishedAt ?? undefined)}</span>
+                      </span>
+                    </button>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
 
-          {/* Notifications & Rappels */}
-         <section className="bg-white dark:bg-slate-800 shadow-md rounded-xl p-6">
+          <section className="bg-white dark:bg-slate-800 shadow-sm rounded-lg p-4">
             <div className="flex items-center justify-between mb-4">
-              <h4 className="font-semibold md:text-lg text-base dark:text-white">Notifications</h4>
-              <Button size="sm" variant="ghost" className="dark:text-white"
-                onClick={() => { navigate("/notifications") }}>
-              Tout lire</Button>
+              <h3 className="text-lg font-semibold text-slate-800 dark:text-slate-100">Notifications</h3>
+              <Button size="sm" variant="ghost" onClick={() => navigate("/notifications")}>Tout voir</Button>
             </div>
-            <ul className="space-y-2">
-              {mockNotifications.map((n) => (
-                <li key={n.id} className="flex items-start gap-3 p-2 rounded-lg hover:bg-slate-50 dark:hover:bg-slate-900/40">
-                  <div className={`p-2 rounded-full ${n.type === "rappel" ? "bg-warning-50 text-warning-600" : n.type === "alerte" ? "bg-error-50 text-error-600" : "bg-info-50 text-info-600"}`}>
-                    {n.type === "rappel" && <BellRing className="w-5 h-5" />}
-                    {n.type === "alerte" && <AlertOctagonIconFallback />}
-                    {n.type === "info" && <Inbox className="w-5 h-5" />}
-                  </div>
-                  <div>
-                    <div className="text-sm dark:text-slate-200">{n.text}</div>
-                    <div className="text-xs text-slate-500 dark:text-slate-400">{formatDate(n.datetime)}</div>
-                  </div>
-                </li>
-              ))}
-            </ul>
+            {notifications.length === 0 ? (
+              <p className="text-sm text-slate-500 dark:text-slate-400">Aucune notification.</p>
+            ) : (
+              <ul className="space-y-3">
+                {notifications.slice(0, 4).map((n) => (
+                  <li key={n.id} className="flex items-start gap-3">
+                    <BellRing className={`w-4 h-4 mt-1 ${n.status === "SENT" ? "text-brand-600" : "text-slate-400"}`} />
+                    <div>
+                      <div className="text-sm text-slate-800 dark:text-slate-100">{n.title}</div>
+                      <div className="text-xs text-slate-500 dark:text-slate-400">{formatDate(n.createdAt)}</div>
+                    </div>
+                  </li>
+                ))}
+              </ul>
+            )}
           </section>
         </aside>
       </div>
     </div>
   );
 }
-
-/* ---------------------------
-   Small fallback icon component (example)
-   ---------------------------*/
-// Using a small inline fallback because lucide has many icons; adapt if you have AlertCircle in your set
-const AlertOctagonIconFallback: React.FC = () => (
-  <svg className="w-5 h-5 text-red-500" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round">
-    <path d="M7.86 2h8.28L22 7.86v8.28L16.14 22H7.86L2 16.14V7.86z"></path>
-    <line x1="12" y1="8" x2="12" y2="12"></line>
-    <line x1="12" y1="16" x2="12" y2="16"></line>
-  </svg>
-);

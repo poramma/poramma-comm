@@ -5,14 +5,14 @@ import Button from "../ui/button/Button";
 import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import { useAuth } from "../../context/AuthContext";
-import { userService } from "../../api/services/userService";
-import { updateAddressDto } from "../../api/dto/UserDTO";
+import { userService } from "../../lib/services";
+import type { FullUserProfile } from "../../lib/types";
 import Loader from "../ui/loader/Loader";
 import { toast } from "react-toastify";
 
 export default function UserAddressCard() {
   const { isOpen, openModal, closeModal } = useModal();
-  const { user, updateUserAddress } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(false);
   const [isSaving, setIsSaving] = useState(false);
   const [formData, setFormData] = useState({
@@ -21,7 +21,7 @@ export default function UserAddressCard() {
     country: "",
     zipCode: ""
   });
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<FullUserProfile | null>(null);
 
 // Dans UserAddressCard - même principe
 useEffect(() => {
@@ -29,7 +29,7 @@ useEffect(() => {
     if (user?.id) {
       setIsLoading(true);
       try {
-        const profile = await userService.getUserProfile(user.id);
+        const profile = await userService.getProfile(user.id);
         setUserProfile(profile);
         setFormData({
           address: profile.address?.address || "",
@@ -56,12 +56,12 @@ useEffect(() => {
       if (user?.id) {
         setIsLoading(true);
         try {
-          const userProfile = await userService.getUserProfile(user.id);
+          const profile = await userService.getProfile(user.id);
           setFormData({
-            address: userProfile.address?.address || "",
-            city: userProfile.address?.city || "",
-            country: userProfile.address?.country || "",
-            zipCode: userProfile.address?.zipCode || ""
+            address: profile.address?.address || "",
+            city: profile.address?.city || "",
+            country: profile.address?.country || "",
+            zipCode: profile.address?.zipCode || ""
           });
         } catch (error) {
           console.error("Erreur lors du chargement de l'adresse:", error);
@@ -89,18 +89,15 @@ useEffect(() => {
 
     setIsSaving(true);
     try {
-      const payload: updateAddressDto = {
+      const updatedAddress = await userService.updateAddress(user.id, {
         address: formData.address,
         city: formData.city,
         country: formData.country,
-        zipCode: formData.zipCode
-      };
+        zipCode: formData.zipCode,
+      });
 
-      const updatedProfile = await userService.updateAddress(payload, user.id);
-      
-      // Mettre à jour le contexte d'authentification
-      updateUserAddress(updatedProfile);
-      
+      setUserProfile((prev) => (prev ? { ...prev, address: { ...prev.address, ...updatedAddress } } : prev));
+
       toast.success("Adresse mise à jour avec succès !");
       closeModal();
     } catch (error: any) {

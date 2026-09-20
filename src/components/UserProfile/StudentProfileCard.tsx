@@ -6,17 +6,17 @@ import Input from "../form/input/InputField";
 import Label from "../form/Label";
 import Select from "../form/Select";
 import { useAuth } from "../../context/AuthContext";
-import { userService } from "../../api/services/userService";
-import { updateStudentProfileDto } from "../../api/dto/UserDTO";
+import { userService } from "../../lib/services";
+import type { FullUserProfile } from "../../lib/types";
 import Loader from "../ui/loader/Loader";
 import { toast } from "react-toastify";
 
 export default function StudentProfileCard() {
   const { isOpen, openModal, closeModal } = useModal();
-  const { user, updateUserStudentProfile } = useAuth();
+  const { user } = useAuth();
   const [isLoading, setIsLoading] = useState(true);
   const [isSaving, setIsSaving] = useState(false);
-  const [userProfile, setUserProfile] = useState<any>(null);
+  const [userProfile, setUserProfile] = useState<FullUserProfile | null>(null);
   const [formData, setFormData] = useState({
     university: "",
     faculty: "",
@@ -59,7 +59,7 @@ export default function StudentProfileCard() {
       if (user?.id) {
         setIsLoading(true);
         try {
-          const profile = await userService.getUserProfile(user.id);
+          const profile = await userService.getProfile(user.id);
           setUserProfile(profile);
           setFormData({
             university: profile.studentProfile?.university || "",
@@ -119,10 +119,10 @@ export default function StudentProfileCard() {
 
   const handleSave = async () => {
     if (!user?.id) return;
-
+    console.log("Passed #1");
     setIsSaving(true);
     try {
-      const payload: updateStudentProfileDto = {
+      const updatedStudentProfile = await userService.updateStudentProfile(user.id, {
         university: formData.university,
         faculty: formData.faculty,
         studyLevel: formData.studyLevel,
@@ -130,16 +130,13 @@ export default function StudentProfileCard() {
           scholarship: {
             isRecipient: true,
             decisionNumber: formData.scholarship.decisionNumber,
-            promotion: formData.scholarship.promotion
-          }
-        })
-      };
+            promotion: formData.scholarship.promotion,
+          },
+        }),
+      });
 
-      const updatedProfile = await userService.updateStudentProfile(payload, user.id);
-      
-      updateUserStudentProfile(updatedProfile);
-      setUserProfile(updatedProfile);
-      
+      setUserProfile((prev) => (prev ? { ...prev, studentProfile: updatedStudentProfile } : prev));
+
       toast.success("Profil étudiant mis à jour avec succès !");
       closeModal();
     } catch (error: any) {
@@ -161,9 +158,14 @@ export default function StudentProfileCard() {
   }
 
   // Si l'utilisateur n'est pas étudiant, ne pas afficher le composant
-  if (user?.userType !== 'student') {
+  /**
+   * TODO: Vérifier le userType de l'utilisateur
+   * 
+   * if (user?.userType !== 'student') {
     return null;
   }
+   */
+  
 
   return (
     <div className="p-5 border border-gray-200 rounded-2xl dark:border-gray-800 lg:p-6">

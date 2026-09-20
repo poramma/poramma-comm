@@ -1,5 +1,5 @@
 import { useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useLocation, useNavigate } from "react-router";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import Label from "../form/Label";
 import Input from "../form/input/InputField";
@@ -14,6 +14,7 @@ export default function SignInForm() {
   const [error, setError] = useState<string | null>(null);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
+  const location = useLocation();
   const { login } = useAuth();
 
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
@@ -36,7 +37,9 @@ export default function SignInForm() {
     try {
       setLoading(true);
       await login(email, password);
-      navigate("/dashboard");
+      // Retour là où l'usager voulait aller (ex. un service cliqué depuis l'accueil), sinon le tableau de bord.
+      const from = (location.state as { from?: string } | null)?.from;
+      navigate(from && from.startsWith("/") ? from : "/dashboard");
     } catch (err: any) {
       setError(err.response?.data?.message || "Email ou mot de passe incorrect");
     } finally {
@@ -106,7 +109,7 @@ export default function SignInForm() {
                     type="email" 
                     placeholder="info@gmail.com" 
                     required
-                    onChange={(e) => {
+                    onChange={() => {
                       setError(null);
                     }}
                   />
@@ -118,7 +121,7 @@ export default function SignInForm() {
                   </Label>
                   <div className="relative">
                     <Input
-                      onChange={e => {
+                      onChange={() => {
                         setError(null);
                       }}
                       name="password"
@@ -170,6 +173,17 @@ export default function SignInForm() {
                 >
                   Créer un compte
                 </Link>
+              </p>
+              <p className="mt-6 text-xs text-gray-500 dark:text-gray-400 text-center sm:text-start">
+                En vous connectant, vous acceptez nos{" "}
+                <Link to="/conditions-utilisation" className="underline hover:text-brand-600">
+                  conditions d&apos;utilisation
+                </Link>{" "}
+                et notre{" "}
+                <Link to="/politique-confidentialite" className="underline hover:text-brand-600">
+                  politique de confidentialité
+                </Link>
+                .
               </p>
             </div>
           </div>
