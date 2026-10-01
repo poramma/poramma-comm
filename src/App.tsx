@@ -1,4 +1,4 @@
-import { BrowserRouter as Router, Routes, Route, Navigate } from "react-router";
+import { BrowserRouter as Router, Routes, Route, Navigate, Outlet } from "react-router";
 import SignIn from "./pages/AuthPages/SignIn";
 import SignUp from "./pages/AuthPages/SignUp";
 import ResetPassword from "./pages/AuthPages/ResetPassword";
@@ -48,6 +48,9 @@ import CulturePage from "./pages/Culture/CulturePage";
 import CultureRequestPage from "./pages/Culture/CultureRequestPage";
 import CultureNewThreadPage from "./pages/Culture/CultureNewThreadPage";
 import CultureThreadPage from "./pages/Culture/CultureThreadPage";
+import { RequireAuth, RedirectIfAuthenticated, RequireOnboarded } from "./routes/RequireAuth";
+import ForcePasswordChange from "./pages/AuthPages/ForcePasswordChange";
+import VerifyEmailPage from "./pages/AuthPages/VerifyEmailPage";
 
 export default function App() {
   return (
@@ -63,8 +66,28 @@ export default function App() {
               <HomePage />
             }
           />
-          {/* Dashboard Layout */}
-          <Route element={<AppLayout />}>
+          {/* Session valide requise pour tout ce qui suit — voir routes/RequireAuth.tsx */}
+          <Route
+            element={
+              <RequireAuth>
+                <Outlet />
+              </RequireAuth>
+            }
+          >
+            {/* Onboarding d'un compte enrôlé sur place (mot de passe par défaut, email
+                à confirmer) — hors RequireOnboarded : c'est justement ce que ces deux
+                pages font lever, une boucle sinon. */}
+            <Route path="/completer-mot-de-passe" element={<ForcePasswordChange />} />
+            <Route path="/verifier-email" element={<VerifyEmailPage />} />
+
+            {/* Dashboard Layout */}
+            <Route
+              element={
+                <RequireOnboarded>
+                  <AppLayout />
+                </RequireOnboarded>
+              }
+            >
             <Route index path="/dashboard" element={<Home />} />
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/campagnes" element={<CampagnesPage />} />
@@ -213,12 +236,27 @@ export default function App() {
             <Route path="/images" element={<Images />} />
             <Route path="/videos" element={<Videos />} />
 
+            </Route>
           </Route>
 
-          {/* Auth Layout */}
+          {/* Auth Layout — publiques, mais inutiles si déjà connecté */}
           <Route path="/auth/register" element={<Navigate to="/enregistrement" replace />} />
-          <Route path="/signin" element={<SignIn />} />
-          <Route path="/signup" element={<SignUp />} />
+          <Route
+            path="/signin"
+            element={
+              <RedirectIfAuthenticated>
+                <SignIn />
+              </RedirectIfAuthenticated>
+            }
+          />
+          <Route
+            path="/signup"
+            element={
+              <RedirectIfAuthenticated>
+                <SignUp />
+              </RedirectIfAuthenticated>
+            }
+          />
           <Route path="/reset-password" element={<ResetPassword />} />
 
           {/* Pages légales — publiques */}
