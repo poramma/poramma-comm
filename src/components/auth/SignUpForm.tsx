@@ -6,6 +6,7 @@ import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
 import { EyeClosed, EyeIcon } from "lucide-react";
+import { emailError } from "../../lib/email";
 
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -16,6 +17,9 @@ export default function SignUpForm() {
   const [errorLastName, setErrorLastName] = useState<string | null>(null);
   const [errorOtp, setErrorOtp] = useState<string | null>(null);
   const [error, setError] = useState<string | null>(null);
+  // Email déjà quitté une fois (blur) : au-delà, il se revalide à chaque
+  // frappe, pas la peine d'attendre la soumission.
+  const [emailTouched, setEmailTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const [step, setStep] = useState<"form" | "otp">("form");
   const [otp, setOtp] = useState("");
@@ -52,8 +56,10 @@ export default function SignUpForm() {
         setErrorLastName("Veuillez renseigner votre nom.");
       return;
     }
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setErrorEmail("Email invalide.");
+    setEmailTouched(true);
+    const emailMsg = emailError(email ?? "", true);
+    if (emailMsg) {
+      setErrorEmail(emailMsg);
       return;
     }
     if (!password || password.length < 6) {
@@ -142,8 +148,13 @@ export default function SignUpForm() {
                   type="email"
                   value={formData.email}
                   onChange={e => {
-                    setFormData({...formData, email: e.target.value})
-                    setErrorEmail(null);
+                    const value = e.target.value;
+                    setFormData({...formData, email: value})
+                    if (emailTouched) setErrorEmail(emailError(value, true));
+                  }}
+                  onBlur={() => {
+                    setEmailTouched(true);
+                    setErrorEmail(emailError(formData.email, true));
                   }} />
                 {errorEmail && <p className="text-red-500 mt-2">{errorEmail}</p>}
               </div>

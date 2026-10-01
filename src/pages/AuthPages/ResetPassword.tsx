@@ -7,6 +7,7 @@ import Input from "../../components/form/input/InputField";
 import Button from "../../components/ui/button/Button";
 import { EyeCloseIcon, EyeIcon } from "../../icons";
 import { authService } from "../../lib/services";
+import { emailError } from "../../lib/email";
 
 const RESEND_DELAY_SECONDS = 60;
 
@@ -32,6 +33,10 @@ export default function ResetPassword() {
   const [showPassword, setShowPassword] = useState(false);
   const [busy, setBusy] = useState(false);
   const [error, setError] = useState<string | null>(null);
+  const [emailErr, setEmailErr] = useState<string | null>(null);
+  // Champ déjà quitté une fois (blur) : au-delà, il se revalide à chaque
+  // frappe, pas la peine d'attendre la soumission.
+  const [emailTouched, setEmailTouched] = useState(false);
   const [info, setInfo] = useState<string | null>(null);
   const [cooldown, setCooldown] = useState(0);
 
@@ -45,10 +50,10 @@ export default function ResetPassword() {
     e?.preventDefault();
     setError(null);
     setInfo(null);
-    if (!/\S+@\S+\.\S+/.test(email.trim())) {
-      setError("Veuillez entrer une adresse email valide.");
-      return;
-    }
+    setEmailTouched(true);
+    const msg = emailError(email, true);
+    setEmailErr(msg);
+    if (msg) return;
     setBusy(true);
     try {
       await authService.forgotPassword(email.trim());
@@ -112,7 +117,23 @@ export default function ResetPassword() {
                   <Label>
                     Email <span className="text-error-500">*</span>
                   </Label>
-                  <Input type="email" placeholder="info@gmail.com" value={email} onChange={(e) => setEmail(e.target.value)} required />
+                  <Input
+                    type="email"
+                    placeholder="info@gmail.com"
+                    value={email}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEmail(value);
+                      if (emailTouched) setEmailErr(emailError(value, true));
+                    }}
+                    onBlur={() => {
+                      setEmailTouched(true);
+                      setEmailErr(emailError(email, true));
+                    }}
+                    error={!!emailErr}
+                    hint={emailErr ?? undefined}
+                    required
+                  />
                 </div>
                 <Button className="w-full" size="sm" type="submit" disabled={busy}>
                   {busy ? "Envoi en cours..." : "Recevoir le code"}

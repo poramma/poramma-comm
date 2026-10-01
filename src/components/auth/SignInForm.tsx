@@ -6,42 +6,43 @@ import Input from "../form/input/InputField";
 import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
+import { emailError } from "../../lib/email";
 
 
 export default function SignInForm() {
   const [showPassword, setShowPassword] = useState(false);
   const [isChecked, setIsChecked] = useState(false);
-  const [error, setError] = useState<string | null>(null);
+  const [email, setEmail] = useState("");
+  const [password, setPassword] = useState("");
+  const [errors, setErrors] = useState<{ email?: string; password?: string; form?: string }>({});
+  // Champ déjà quitté une fois (blur) : au-delà, l'email se revalide à
+  // chaque frappe, pas la peine d'attendre la soumission.
+  const [emailTouched, setEmailTouched] = useState(false);
   const [loading, setLoading] = useState(false);
   const navigate = useNavigate();
   const location = useLocation();
   const { login } = useAuth();
 
+  const validateEmail = (value: string) => emailError(value, true);
+  const validatePassword = (value: string) => (!value.trim() ? "Le mot de passe est requis." : value.length < 6 ? "Le mot de passe doit contenir au moins 6 caractères." : null);
+
   const handleSubmit = async (e: React.FormEvent<HTMLFormElement>) => {
     e.preventDefault();
-    setError(null);
 
-    const formData = new FormData(e.currentTarget);
-    const email = (formData.get("email") as string)?.trim();
-    const password = (formData.get("password") as string)?.trim();
-
-    if (!email || !/\S+@\S+\.\S+/.test(email)) {
-      setError("Veuillez entrer une adresse email valide.");
-      return;
-    }
-    if (!password || password.length < 6) {
-      setError("Le mot de passe doit contenir au moins 6 caractères.");
-      return;
-    }
+    const emailMsg = validateEmail(email);
+    const passwordMsg = validatePassword(password);
+    setErrors({ email: emailMsg ?? undefined, password: passwordMsg ?? undefined });
+    setEmailTouched(true);
+    if (emailMsg || passwordMsg) return;
 
     try {
       setLoading(true);
-      await login(email, password);
+      await login(email.trim(), password, isChecked);
       // Retour là où l'usager voulait aller (ex. un service cliqué depuis l'accueil), sinon le tableau de bord.
       const from = (location.state as { from?: string } | null)?.from;
       navigate(from && from.startsWith("/") ? from : "/dashboard");
     } catch (err: any) {
-      setError(err.response?.data?.message || "Email ou mot de passe incorrect");
+      setErrors({ form: err.response?.data?.message || "Email ou mot de passe incorrect" });
     } finally {
       setLoading(false);
     }
@@ -100,20 +101,29 @@ export default function SignInForm() {
             </div>
             <form onSubmit={handleSubmit}>
               <div className="space-y-6">
+                {errors.form && <p className="text-red-500">{errors.form}</p>}
                 <div>
                   <Label>
                     Email <span className="text-error-500">*</span>{" "}
                   </Label>
-                  <Input 
+                  <Input
                     name="email"
-                    type="email" 
-                    placeholder="info@gmail.com" 
+                    type="email"
+                    placeholder="info@gmail.com"
                     required
-                    onChange={() => {
-                      setError(null);
+                    value={email}
+                    onChange={(e) => {
+                      const value = e.target.value;
+                      setEmail(value);
+                      setErrors((err) => ({ ...err, form: undefined, email: emailTouched ? validateEmail(value) ?? undefined : err.email }));
                     }}
+                    onBlur={() => {
+                      setEmailTouched(true);
+                      setErrors((err) => ({ ...err, email: validateEmail(email) ?? undefined }));
+                    }}
+                    error={!!errors.email}
+                    hint={errors.email}
                   />
-                  {error && <p className="text-red-500 mt-2">{error}</p>}
                 </div>
                 <div>
                   <Label>
@@ -121,13 +131,17 @@ export default function SignInForm() {
                   </Label>
                   <div className="relative">
                     <Input
-                      onChange={() => {
-                        setError(null);
-                      }}
                       name="password"
                       type={showPassword ? "text" : "password"}
                       placeholder="Enter your password"
                       required
+                      value={password}
+                      onChange={(e) => {
+                        setPassword(e.target.value);
+                        setErrors((err) => ({ ...err, form: undefined, password: undefined }));
+                      }}
+                      error={!!errors.password}
+                      hint={errors.password}
                     />
                     <span
                       onClick={() => setShowPassword(!showPassword)}
@@ -139,7 +153,6 @@ export default function SignInForm() {
                         <EyeCloseIcon className="fill-gray-500 dark:fill-gray-400 size-5" />
                       )}
                     </span>
-                    {error && <p className="text-red-500 mt-2">{error}</p>}
                   </div>
                 </div>
                 <div className="flex items-center justify-between">

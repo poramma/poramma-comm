@@ -15,6 +15,7 @@ import Select from "../../components/form/Select";
 import { useAuth } from "../../context/AuthContext";
 import { useRegistration } from "../../context/RegistrationContext";
 import { documentService, registrationService, userService } from "../../lib/services";
+import { formatPhoneInput, phoneError } from "../../lib/phone";
 import type { MyDocument, RegistrationDocumentItem, UserType } from "../../lib/types";
 
 const STEPS = ["Votre situation", "Informations", "Pièces justificatives", "Envoi du dossier"];
@@ -149,6 +150,8 @@ export default function RegistrationPage() {
     const next: Record<string, string> = {};
     if (!userType) next.userType = "Choisissez votre situation";
     if (!city.trim()) next.city = "La ville de résidence est requise";
+    const phoneMsg = phoneError(phone, false); // facultatif
+    if (phoneMsg) next.phone = phoneMsg;
     setErrors(next);
     if (Object.keys(next).length) return false;
 
@@ -368,7 +371,19 @@ export default function RegistrationPage() {
             </div>
             <div>
               <Label>Téléphone</Label>
-              <Input value={phone} onChange={(e) => setPhone(e.target.value)} placeholder="+212 6 12 34 56 78" />
+              <Input
+                type="tel"
+                value={phone}
+                onChange={(e) => {
+                  const value = formatPhoneInput(e.target.value);
+                  setPhone(value);
+                  if (errors.phone) setErrors((err) => ({ ...err, phone: phoneError(value, false) ?? "" }));
+                }}
+                onBlur={() => setErrors((err) => ({ ...err, phone: phoneError(phone, false) ?? "" }))}
+                placeholder="+212 6 12 34 56 78"
+                error={!!errors.phone}
+                hint={errors.phone}
+              />
             </div>
           </div>
           <div>
