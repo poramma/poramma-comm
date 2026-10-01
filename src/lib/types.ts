@@ -7,6 +7,11 @@ export interface AuthUser {
   email: string;
   phone: string | null;
   status: string;
+  // Compte enrôlé sur place (mot de passe par défaut, email pas encore
+  // confirmé) — voir routes/RequireAuth.tsx's RequireOnboarded, qui bloque
+  // l'accès à l'app tant que ces deux points ne sont pas réglés.
+  emailVerified: boolean;
+  mustChangePassword: boolean;
   profile?: {
     firstName?: string;
     lastName?: string;

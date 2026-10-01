@@ -327,6 +327,16 @@ export const userService = {
     await api.post("/profile/password", { currentPassword, newPassword });
   },
 
+  /** Confirme le code reçu par email (enrôlement sur place) — voir RequireOnboarded. */
+  verifyEmail: async (userId: string, otp: string): Promise<void> => {
+    await api.post(`/users/me/${userId}/verify-email`, { otp });
+  },
+
+  /** Redemande un code : l'ancien (perdu ou expiré) est invalidé côté serveur. */
+  resendVerification: async (userId: string): Promise<void> => {
+    await api.post(`/users/me/${userId}/resend-verification`);
+  },
+
   updatePersonalInfo: async (
     userId: string,
     data: { firstName: string; lastName: string; phone?: string; userType?: UserType; gender?: string; bio?: string; birthDate?: string }
