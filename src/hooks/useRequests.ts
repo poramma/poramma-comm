@@ -52,7 +52,7 @@ export function useRequests() {
     const primaryColor = isDark ? "#38BDF8" : "#1D4ED8";
     const textColor = isDark ? "#FFFFFF" : "#000000";
 
-    const logoBase64 = await fetch("/images/logo/fivision-logo.png")
+    const logoBase64 = await fetch("/images/poramma-logo.png")
       .then((res) => res.blob())
       .then(
         (blob) =>
@@ -65,7 +65,7 @@ export function useRequests() {
 
     const qrData = await QRCode.toDataURL(request.id, { width: 80 });
 
-    doc.addImage(logoBase64, "PNG", 15, 10, 25, 25);
+    doc.addImage(logoBase64, "PNG", 15, 10, 34, 17);
     doc.setFont("helvetica", "bold");
     doc.setFontSize(18);
     doc.setTextColor(primaryColor);

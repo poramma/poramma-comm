@@ -84,29 +84,18 @@ const AppHeader: React.FC = () => {
           </button>
 
           <div className="flex items-center gap-2 lg:gap-3">
-            <Link to="/" className="lg:hidden flex items-center gap-2 text-lg font-semibold text-gray-800 dark:text-white"
-              title="Home"
-              aria-label="Home"
-
+            <Link
+              to="/"
+              className="lg:hidden flex items-center gap-2 text-lg font-bold tracking-tight text-green-800 dark:text-white"
+              title="Poramma — accueil"
+              aria-label="Poramma — accueil"
             >
-              <img
-                className="dark:hidden"
-                src="/images/logo/fivision-logo-icon.svg"
-                alt="Logo"
-              />
-              <img
-                className="hidden dark:block"
-                src="/images/logo/fivision-logo-icon.svg"
-                alt="Logo"
-              />
+              {/* Même carreau recadré que dans la barre latérale (marge blanche autour de l'icône). */}
+              <span className="relative block h-9 w-9 shrink-0 overflow-hidden" style={{ borderRadius: "20%" }}>
+                <img src="/images/favicon.png" alt="" className="h-full w-full scale-[1.32] object-cover" />
+              </span>
+              Poramma
             </Link>
-            <span 
-              className="lg:hidden text-lg font-semibold text-gray-800 dark:text-white"
-              title="Fivision"
-            >
-              Fivision
-            </span>
-          
           </div>
 
           <button
