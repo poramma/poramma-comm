@@ -2,7 +2,7 @@ import { useCallback, useEffect, useState } from "react";
 import { Link, Navigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { CalendarDays, CheckCircle2, ChevronDown, FileText, LifeBuoy, Mail, Phone, Send } from "lucide-react";
+import { Building2, CalendarDays, CheckCircle2, ChevronDown, FileText, LifeBuoy, Mail, Phone, Send, Users } from "lucide-react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
@@ -13,16 +13,23 @@ import TextArea from "../../components/form/input/TextArea";
 import { useAuth } from "../../context/AuthContext";
 import { EMBASSY_CONTACT } from "../../config/contact";
 import Badge from "../../components/ui/badge/Badge";
-import { supportService, type SupportCategory, type SupportTicket } from "../../lib/services";
-import { CATEGORY_LABELS, STATUS_INFO, formatWhen } from "./ticketLabels";
+import { supportService, type SupportCategory, type SupportTarget, type SupportTicket } from "../../lib/services";
+import { CATEGORY_LABELS, TARGET_CATEGORIES, TARGET_INFO, formatWhen, statusInfoFor } from "./ticketLabels";
 
-const CATEGORIES: { value: SupportCategory; label: string }[] = [
-  { value: "DEMANDE", label: "Une de mes demandes" },
-  { value: "RENDEZ_VOUS", label: "Un rendez-vous" },
-  { value: "REGISTRATION", label: "Mon enregistrement / mon INUE" },
-  { value: "ACCOUNT", label: "Compte et connexion" },
-  { value: "TECHNICAL", label: "Problème technique" },
-  { value: "OTHER", label: "Autre question" },
+/** Les deux destinataires possibles d'un message — le premier choix du formulaire. */
+const TARGETS: { value: SupportTarget; title: string; description: string; icon: typeof Building2 }[] = [
+  {
+    value: "EMBASSY",
+    title: "Ambassade",
+    description: "Mes demandes, rendez-vous, enregistrement/INUE, documents consulaires.",
+    icon: Building2,
+  },
+  {
+    value: "COMMUNITY",
+    title: "Support Poramma Communauté",
+    description: "Mon compte, un problème technique, un signalement.",
+    icon: Users,
+  },
 ];
 
 const FAQ: { q: string; a: React.ReactNode }[] = [
@@ -90,6 +97,7 @@ export default function SupportPage() {
   const { user, loading } = useAuth();
   const [openIndex, setOpenIndex] = useState<number | null>(0);
 
+  const [target, setTarget] = useState<SupportTarget | "">("");
   const [category, setCategory] = useState<SupportCategory | "">("");
   const [reference, setReference] = useState("");
   const [subject, setSubject] = useState("");
@@ -113,6 +121,7 @@ export default function SupportPage() {
   const submit = async (e: React.FormEvent) => {
     e.preventDefault();
     setError(null);
+    if (!target) return setError("Choisissez à qui vous souhaitez écrire.");
     if (!category) return setError("Choisissez la nature de votre demande.");
     if (subject.trim().length < 3) return setError("Indiquez l'objet de votre message.");
     if (message.trim().length < 10) return setError("Décrivez votre demande en quelques phrases (10 caractères minimum).");
@@ -120,6 +129,7 @@ export default function SupportPage() {
     setSending(true);
     try {
       const result = await supportService.send({
+        target,
         category,
         subject: subject.trim(),
         message: message.trim(),
@@ -127,6 +137,7 @@ export default function SupportPage() {
       });
       setTicket(result);
       loadTickets();
+      setTarget("");
       setCategory("");
       setReference("");
       setSubject("");
@@ -145,7 +156,7 @@ export default function SupportPage() {
 
   return (
     <>
-      <PageMeta title="Support" description="Aide et contact de l'ambassade." />
+      <PageMeta title="Support" description="Aide et contact : ambassade du Mali et support Poramma Communauté." />
       <ToastContainer />
       <PageBreadcrumb pageTitle="Support" />
 
@@ -212,16 +223,19 @@ export default function SupportPage() {
         {myTickets && myTickets.length > 0 && (
           <section className={card}>
             <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">Mes tickets</h3>
-            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Suivez l'avancement de vos échanges avec l'ambassade.</p>
+            <p className="mb-4 text-sm text-gray-500 dark:text-gray-400">Suivez l'avancement de vos échanges avec l'ambassade et le support Poramma Communauté.</p>
             <div className="divide-y divide-gray-100 dark:divide-gray-800">
               {myTickets.map((t) => {
-                const info = STATUS_INFO[t.status];
+                const info = statusInfoFor(t.status, t.target);
                 const needsYou = t.status === "WAITING_USER";
                 return (
                   <Link key={t.id} to={`/support/tickets/${t.id}`} className="flex items-start justify-between gap-3 py-3 hover:bg-gray-50 dark:hover:bg-white/[0.02]">
                     <div className="min-w-0">
                       <p className="truncate text-sm font-medium text-gray-800 dark:text-white/90">{t.subject}</p>
-                      <p className="text-xs text-gray-500 dark:text-gray-400">
+                      <p className="mt-0.5 flex flex-wrap items-center gap-x-1.5 gap-y-1 text-xs text-gray-500 dark:text-gray-400">
+                        <Badge color={TARGET_INFO[t.target ?? "EMBASSY"].color} variant="light" size="xs">
+                          {TARGET_INFO[t.target ?? "EMBASSY"].badge}
+                        </Badge>
                         <span className="font-mono">{t.reference}</span> · {CATEGORY_LABELS[t.category]} · dernière activité {formatWhen(t.lastMessageAt)}
                       </p>
                     </div>
@@ -237,9 +251,10 @@ export default function SupportPage() {
 
         {/* Formulaire */}
         <section className={card}>
-          <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">Écrire à l'ambassade</h3>
+          <h3 className="text-base font-semibold text-gray-800 dark:text-white/90">Contacter le support</h3>
           <p className="mb-5 text-sm text-gray-500 dark:text-gray-400">
-            Votre message est transmis aux agents ; ils vous répondent à <span className="font-medium">{user.email}</span>.
+            Choisissez d'abord à qui vous écrivez. {target ? `Votre message est transmis ${TARGET_INFO[target].to} ; la réponse vous parvient ici et à ` : "La réponse vous parvient ici et à "}
+            <span className="font-medium">{user.email}</span>.
           </p>
 
           {ticket ? (
@@ -260,11 +275,53 @@ export default function SupportPage() {
             </div>
           ) : (
             <form onSubmit={submit} className="space-y-4">
+              <fieldset>
+                <legend className="mb-1.5 block text-sm font-medium text-gray-700 dark:text-gray-400">À qui souhaitez-vous écrire ? *</legend>
+                <div role="radiogroup" className="grid grid-cols-1 gap-3 sm:grid-cols-2">
+                  {TARGETS.map(({ value, title, description, icon: Icon }) => {
+                    const selected = target === value;
+                    return (
+                      <label
+                        key={value}
+                        className={`relative flex cursor-pointer items-start gap-3 rounded-xl border p-4 transition-colors focus-within:ring-2 focus-within:ring-brand-500/40 ${
+                          selected
+                            ? "border-brand-500 bg-brand-50 dark:bg-brand-500/10"
+                            : "border-gray-200 hover:border-brand-300 dark:border-gray-800 dark:hover:border-brand-700"
+                        }`}
+                      >
+                        <input
+                          type="radio"
+                          name="support-target"
+                          value={value}
+                          checked={selected}
+                          onChange={() => {
+                            if (target !== value) {
+                              setTarget(value);
+                              setCategory(""); // la liste des catégories dépend du destinataire
+                            }
+                          }}
+                          className="sr-only"
+                        />
+                        <Icon className={`mt-0.5 h-5 w-5 shrink-0 ${selected ? "text-brand-700 dark:text-brand-300" : "text-gray-400"}`} aria-hidden="true" />
+                        <span className="min-w-0 flex-1">
+                          <span className="block text-sm font-semibold text-gray-800 dark:text-white/90">{title}</span>
+                          <span className="mt-0.5 block text-xs text-gray-500 dark:text-gray-400">{description}</span>
+                        </span>
+                        <CheckCircle2 className={`h-5 w-5 shrink-0 ${selected ? "text-brand-700 dark:text-brand-300" : "text-transparent"}`} aria-hidden="true" />
+                      </label>
+                    );
+                  })}
+                </div>
+              </fieldset>
+
+              {target && (
+              <>
               <div className="grid grid-cols-1 gap-4 sm:grid-cols-2">
                 <div>
                   <Label>Nature de votre demande *</Label>
                   <Select
-                    options={CATEGORIES}
+                    key={target}
+                    options={TARGET_CATEGORIES[target].map((value) => ({ value, label: CATEGORY_LABELS[value] }))}
                     placeholder="Sélectionnez…"
                     defaultValue={category}
                     onChange={(value) => setCategory(value as SupportCategory)}
@@ -290,6 +347,8 @@ export default function SupportPage() {
                   {sending ? "Envoi en cours..." : "Envoyer le message"}
                 </Button>
               </div>
+              </>
+              )}
             </form>
           )}
         </section>

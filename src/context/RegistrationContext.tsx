@@ -2,6 +2,7 @@ import { createContext, useCallback, useContext, useEffect, useState, ReactNode 
 import { registrationService } from "../lib/services";
 import type { RegistrationChecklist } from "../lib/types";
 import { useAuth } from "./AuthContext";
+import { isCommunityStaff } from "../lib/communityAccess";
 
 /**
  * État de l'enregistrement du membre auprès de l'ambassade, partagé par tout
@@ -36,7 +37,8 @@ export const RegistrationProvider = ({ children }: { children: ReactNode }) => {
 
   useEffect(() => {
     if (authLoading) return;
-    if (!user) {
+    // Le personnel de la communauté n'a pas de dossier d'enregistrement : rien à charger.
+    if (!user || isCommunityStaff(user)) {
       setRegistration(null);
       return;
     }

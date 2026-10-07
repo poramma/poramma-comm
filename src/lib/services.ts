@@ -364,7 +364,10 @@ export const userService = {
   },
 };
 
-export type SupportCategory = "ACCOUNT" | "DEMANDE" | "RENDEZ_VOUS" | "REGISTRATION" | "TECHNICAL" | "OTHER";
+export type SupportCategory = "ACCOUNT" | "DEMANDE" | "RENDEZ_VOUS" | "REGISTRATION" | "TECHNICAL" | "REPORT" | "OTHER";
+
+/** Destinataire d'un ticket : l'ambassade, ou l'équipe de support de la plateforme communautaire. */
+export type SupportTarget = "EMBASSY" | "COMMUNITY";
 
 export type SupportStatus = "OPEN" | "IN_PROGRESS" | "WAITING_USER" | "RESOLVED" | "CLOSED";
 
@@ -373,6 +376,8 @@ export interface SupportTicket {
   reference: string;
   subject: string;
   category: SupportCategory;
+  /** Absent d'un ancien ticket : EMBASSY. */
+  target?: SupportTarget;
   linkedReference: string | null;
   status: SupportStatus;
   createdAt: string;
@@ -391,7 +396,7 @@ export interface SupportMessage {
 
 /** Tickets de support (communaute-api) — ouverts à tout compte connecté, même non validé ; jamais d'identité d'agent ni de note interne. */
 export const supportService = {
-  send: async (data: { category: SupportCategory; subject: string; message: string; reference?: string }): Promise<{ id: string; ticket: string }> => {
+  send: async (data: { target: SupportTarget; category: SupportCategory; subject: string; message: string; reference?: string }): Promise<{ id: string; ticket: string }> => {
     const res = await api.post(`${C}/support`, data);
     return unwrap(res);
   },

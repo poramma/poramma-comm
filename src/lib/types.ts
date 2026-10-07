@@ -19,7 +19,11 @@ export interface AuthUser {
     userType?: string;
     inue?: string | null;
   } | null;
-  roles?: { role: { id: string; name: string; level: number } }[];
+  roles?: { role: { id: string; name: string; level: number }; isActive?: boolean }[];
+  /** Codes de permission du compte (ex. `community:audit:read`) — vide ou absent pour un citoyen. */
+  permissions?: string[];
+  /** Rôle actuellement actif (un compte du personnel communautaire en a un). */
+  activeRole?: { name: string; level: number; id?: string; description?: string | null } | null;
 }
 
 /** Réponse de GET /users/me/:id/profile (identity-api) — pas d'enveloppe ok(). */

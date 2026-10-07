@@ -6,7 +6,7 @@ import type { AuthUser } from "../lib/types";
 interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
-  login: (email: string, password: string, rememberMe?: boolean) => Promise<void>;
+  login: (email: string, password: string, rememberMe?: boolean) => Promise<AuthUser>;
   sendOtp: (email: string) => Promise<void>;
   verifyOtp: (data: { email: string; otp: string; password: string; firstName: string; lastName: string; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -37,6 +37,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   const login = async (email: string, password: string, rememberMe?: boolean) => {
     const loggedInUser = await authService.login(email, password, rememberMe);
     setUser(loggedInUser);
+    return loggedInUser;
   };
 
   const sendOtp = async (email: string) => {

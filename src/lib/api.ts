@@ -11,6 +11,7 @@ import axios, { AxiosInstance, InternalAxiosRequestConfig } from "axios";
 
 export const API_BASE_URL = import.meta.env.VITE_API_URL || "http://localhost";
 const REQUEST_TIMEOUT = 30000;
+const CLIENT_APP = "community";
 
 const ACCESS_TOKEN_KEY = "poramma_community_access_token";
 const REFRESH_TOKEN_KEY = "poramma_community_refresh_token";
@@ -36,7 +37,8 @@ export function clearTokens() {
 export const api: AxiosInstance = axios.create({
   baseURL: API_BASE_URL,
   timeout: REQUEST_TIMEOUT,
-  headers: { "Content-Type": "application/json", Accept: "application/json" },
+  // X-Client-App : l'identity-api s'en sert pour classer les connexions échouées dans le bon journal d'audit.
+  headers: { "Content-Type": "application/json", Accept: "application/json", "X-Client-App": CLIENT_APP },
 });
 
 api.interceptors.request.use((config: InternalAxiosRequestConfig) => {
@@ -59,7 +61,11 @@ function refreshTokens(): Promise<{ accessToken: string; refreshToken: string }>
       if (!refreshToken) throw new Error("No refresh token");
 
       // axios brut, pas `api` — évite de re-rentrer dans ces intercepteurs.
-      const { data } = await axios.post(`${API_BASE_URL}/auth/refresh`, { refreshToken });
+      const { data } = await axios.post(
+        `${API_BASE_URL}/auth/refresh`,
+        { refreshToken },
+        { headers: { "X-Client-App": CLIENT_APP } }
+      );
       setTokens(data.data.accessToken, data.data.refreshToken);
       return data.data as { accessToken: string; refreshToken: string };
     })().finally(() => {

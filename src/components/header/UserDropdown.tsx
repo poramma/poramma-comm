@@ -3,12 +3,14 @@ import { DropdownItem } from "../ui/dropdown/DropdownItem";
 import { Dropdown } from "../ui/dropdown/Dropdown";
 import { useAuth } from "../../context/AuthContext";
 import { useNavigate } from "react-router";
+import { useCommunityAccess } from "../../hooks/useCommunityAccess";
 
 export default function UserDropdown() {
   const navigate = useNavigate();
   const [isOpen, setIsOpen] = useState(false);
 
   const { user, logout } = useAuth();
+  const { isStaff, roleLabel } = useCommunityAccess();
   const displayName = user?.profile ? [user.profile.firstName, user.profile.lastName].filter(Boolean).join(" ") : user?.email ?? "";
 
   const initials = ((user?.profile?.firstName?.[0] ?? "") + (user?.profile?.lastName?.[0] ?? "") || (user?.email?.[0] ?? "?")).toUpperCase();
@@ -36,7 +38,10 @@ export default function UserDropdown() {
           {initials}
         </span>
 
-        <span className="block mr-1 font-medium text-theme-sm">{displayName}</span>
+        <span className="block mr-1 text-left font-medium text-theme-sm">
+          {displayName}
+          {roleLabel && <span className="hidden text-theme-xs font-normal text-gray-500 dark:text-gray-400 sm:block">{roleLabel}</span>}
+        </span>
         <svg
           className={`stroke-gray-500 dark:stroke-gray-400 transition-transform duration-200 ${
             isOpen ? "rotate-180" : ""
@@ -69,6 +74,11 @@ export default function UserDropdown() {
           <span className="mt-0.5 block text-theme-xs text-gray-500 dark:text-gray-400">
             {user?.email}
           </span>
+          {roleLabel && (
+            <span className="mt-1.5 inline-flex items-center rounded-full bg-brand-50 px-2.5 py-0.5 text-theme-xs font-medium text-brand-600 dark:bg-brand-500/15 dark:text-brand-400">
+              {roleLabel}
+            </span>
+          )}
         </div>
 
         <ul className="flex flex-col gap-1 pt-4 pb-3 border-b border-gray-200 dark:border-gray-800">
@@ -122,6 +132,7 @@ export default function UserDropdown() {
               Paramètres
             </DropdownItem>
           </li>
+          {!isStaff && (
           <li>
             <DropdownItem
               onItemClick={closeDropdown}
@@ -147,6 +158,7 @@ export default function UserDropdown() {
               Support
             </DropdownItem>
           </li>
+          )}
         </ul>
         <DropdownItem
           onItemClick={handleLogout}

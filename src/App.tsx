@@ -48,7 +48,17 @@ import CulturePage from "./pages/Culture/CulturePage";
 import CultureRequestPage from "./pages/Culture/CultureRequestPage";
 import CultureNewThreadPage from "./pages/Culture/CultureNewThreadPage";
 import CultureThreadPage from "./pages/Culture/CultureThreadPage";
-import { RequireAuth, RedirectIfAuthenticated, RequireOnboarded } from "./routes/RequireAuth";
+import { RequireAuth, RedirectIfAuthenticated, RequireOnboarded, RequireCommunityStaff, CitizenOnly } from "./routes/RequireAuth";
+import { PERMISSIONS } from "./lib/communityAccess";
+import AdminShell from "./pages/Admin/AdminShell";
+import AdminDashboard from "./pages/Admin/AdminDashboard";
+import AdminMembers from "./pages/Admin/AdminMembers";
+import AdminMemberDetail from "./pages/Admin/AdminMemberDetail";
+import AdminAudit from "./pages/Admin/AdminAudit";
+import AdminSupport from "./pages/Admin/AdminSupport";
+import AdminSupportTicket from "./pages/Admin/AdminSupportTicket";
+import AdminSystem from "./pages/Admin/AdminSystem";
+import AdminTeam from "./pages/Admin/AdminTeam";
 import ForcePasswordChange from "./pages/AuthPages/ForcePasswordChange";
 import VerifyEmailPage from "./pages/AuthPages/VerifyEmailPage";
 
@@ -88,7 +98,28 @@ export default function App() {
                 </RequireOnboarded>
               }
             >
-            <Route index path="/dashboard" element={<Home />} />
+            {/* Tableau de bord citoyen — le personnel de la communauté (sans dossier ni INUE) est renvoyé sur /admin */}
+            <Route index path="/dashboard" element={<CitizenOnly><Home /></CitizenOnly>} />
+
+            {/* Administration de la communauté — comptes détenant une permission community:* (voir routes/RequireAuth.tsx) */}
+            <Route
+              path="/admin"
+              element={
+                <RequireCommunityStaff>
+                  <AdminShell />
+                </RequireCommunityStaff>
+              }
+            >
+              <Route index element={<RequireCommunityStaff permission={PERMISSIONS.overviewRead}><AdminDashboard /></RequireCommunityStaff>} />
+              <Route path="membres" element={<RequireCommunityStaff permission={PERMISSIONS.userRead}><AdminMembers /></RequireCommunityStaff>} />
+              <Route path="membres/:id" element={<RequireCommunityStaff permission={PERMISSIONS.userRead}><AdminMemberDetail /></RequireCommunityStaff>} />
+              <Route path="audit" element={<RequireCommunityStaff permission={PERMISSIONS.auditRead}><AdminAudit /></RequireCommunityStaff>} />
+              <Route path="support" element={<RequireCommunityStaff permission={PERMISSIONS.supportRead}><AdminSupport /></RequireCommunityStaff>} />
+              <Route path="support/:id" element={<RequireCommunityStaff permission={PERMISSIONS.supportRead}><AdminSupportTicket /></RequireCommunityStaff>} />
+              <Route path="equipe" element={<RequireCommunityStaff permission={PERMISSIONS.teamRead}><AdminTeam /></RequireCommunityStaff>} />
+              <Route path="systeme" element={<RequireCommunityStaff permission={PERMISSIONS.overviewRead}><AdminSystem /></RequireCommunityStaff>} />
+              <Route path="*" element={<Navigate to="/admin" replace />} />
+            </Route>
             <Route path="/notifications" element={<NotificationsPage />} />
             <Route path="/campagnes" element={<CampagnesPage />} />
             <Route path="/campagnes/:id" element={<CampagneDetailPage />} />

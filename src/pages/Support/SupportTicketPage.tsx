@@ -10,11 +10,11 @@ import Badge from "../../components/ui/badge/Badge";
 import TextArea from "../../components/form/input/TextArea";
 import { useAuth } from "../../context/AuthContext";
 import { supportService, type SupportMessage, type SupportTicket } from "../../lib/services";
-import { CATEGORY_LABELS, STATUS_INFO, formatWhen } from "./ticketLabels";
+import { CATEGORY_LABELS, STAFF_FALLBACK_NAME, TARGET_INFO, formatWhen, statusInfoFor } from "./ticketLabels";
 
 const MAX_LENGTH = 3000;
 
-/** Suivi d'un ticket de support : fil de discussion avec l'ambassade, réponse, résolution. */
+/** Suivi d'un ticket de support : fil de discussion avec l'ambassade ou le support communautaire, réponse, résolution. */
 export default function SupportTicketPage() {
   const { id = "" } = useParams();
   const { user, loading } = useAuth();
@@ -76,7 +76,8 @@ export default function SupportTicketPage() {
     }
   };
 
-  const status = ticket ? STATUS_INFO[ticket.status] : null;
+  const target = ticket?.target ?? "EMBASSY";
+  const status = ticket ? statusInfoFor(ticket.status, target) : null;
   const closed = ticket?.status === "CLOSED";
   const canResolve = ticket && (ticket.status === "OPEN" || ticket.status === "IN_PROGRESS" || ticket.status === "WAITING_USER");
 
@@ -107,9 +108,14 @@ export default function SupportTicketPage() {
                     {ticket.linkedReference ? ` · Réf. ${ticket.linkedReference}` : ""} · Ouvert le {formatWhen(ticket.createdAt)}
                   </p>
                 </div>
-                <Badge color={status.color} variant="light">
-                  {status.label}
-                </Badge>
+                <div className="flex flex-col items-end gap-1.5">
+                  <Badge color={status.color} variant="light">
+                    {status.label}
+                  </Badge>
+                  <Badge color={TARGET_INFO[target].color} variant="light" size="xs">
+                    {TARGET_INFO[target].badge}
+                  </Badge>
+                </div>
               </div>
               <p className="mt-3 text-sm text-gray-600 dark:text-gray-400">{status.hint}</p>
               {canResolve && (
@@ -136,7 +142,7 @@ export default function SupportTicketPage() {
                     <div key={m.id} className={`flex ${mine ? "justify-end" : "justify-start"}`}>
                       <div className={`max-w-[85%] rounded-xl px-3 py-2 text-sm ${mine ? "bg-brand-50 dark:bg-brand-500/10" : "bg-gray-100 dark:bg-gray-800"}`}>
                         <div className="mb-0.5 flex items-center justify-between gap-4">
-                          <span className="font-medium text-gray-900 dark:text-white">{mine ? "Vous" : m.authorName ?? "Ambassade du Mali"}</span>
+                          <span className="font-medium text-gray-900 dark:text-white">{mine ? "Vous" : m.authorName ?? STAFF_FALLBACK_NAME[target]}</span>
                           <span className="text-xs text-gray-400">{formatWhen(m.createdAt)}</span>
                         </div>
                         <p className="whitespace-pre-wrap text-gray-700 dark:text-gray-300">{m.content}</p>
@@ -153,9 +159,9 @@ export default function SupportTicketPage() {
                 </p>
               ) : (
                 <div className="mt-5 border-t border-gray-100 pt-4 dark:border-gray-800">
-                  <TextArea rows={4} value={content} onChange={(v) => setContent(v.slice(0, MAX_LENGTH))} placeholder="Écrire à l'ambassade…" />
+                  <TextArea rows={4} value={content} onChange={(v) => setContent(v.slice(0, MAX_LENGTH))} placeholder={`Écrire ${TARGET_INFO[target].to}…`} />
                   <div className="mt-1 flex items-center justify-between text-xs text-gray-400">
-                    <span>{ticket.status === "RESOLVED" ? "Répondre rouvrira le ticket." : "L'ambassade est prévenue par notification et email."}</span>
+                    <span>{ticket.status === "RESOLVED" ? "Répondre rouvrira le ticket." : target === "COMMUNITY" ? "Le support est prévenu par notification et email." : "L'ambassade est prévenue par notification et email."}</span>
                     <span>
                       {content.length}/{MAX_LENGTH}
                     </span>

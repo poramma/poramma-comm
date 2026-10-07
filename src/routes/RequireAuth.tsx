@@ -12,8 +12,10 @@
 // pas connu, puis redirige si aucune session n'existe.
 
 import { ReactNode } from "react";
-import { Navigate, useLocation } from "react-router";
+import { Link, Navigate, useLocation } from "react-router";
 import { useAuth } from "../context/AuthContext";
+import { STAFF_HOME, CITIZEN_HOME, homePathFor, isCommunityStaff, userHasPermission } from "../lib/communityAccess";
+import { ADMIN_NAV } from "../pages/Admin/adminNav";
 
 function AuthLoading() {
   return (
@@ -46,7 +48,7 @@ export function RedirectIfAuthenticated({ children }: { children: ReactNode }) {
   const { user, loading } = useAuth();
 
   if (loading) return <AuthLoading />;
-  if (user) return <Navigate to="/dashboard" replace />;
+  if (user) return <Navigate to={homePathFor(user)} replace />;
 
   return <>{children}</>;
 }
@@ -66,6 +68,47 @@ export function RequireOnboarded({ children }: { children: ReactNode }) {
   if (!user) return null;
   if (user.mustChangePassword) return <Navigate to="/completer-mot-de-passe" replace />;
   if (!user.emailVerified) return <Navigate to="/verifier-email" replace />;
+
+  return <>{children}</>;
+}
+
+/**
+ * Administration de la communauté (/admin/*) : réservée aux comptes qui
+ * détiennent une permission `community:*`. À placer à l'intérieur de
+ * <RequireAuth>. Un citoyen est renvoyé sur son tableau de bord ; un membre du
+ * personnel à qui il manque la permission précise de la page est renvoyé sur
+ * la 1re page d'administration qu'il peut ouvrir.
+ */
+export function RequireCommunityStaff({ children, permission }: { children: ReactNode; permission?: string }) {
+  const { user } = useAuth();
+  const location = useLocation();
+
+  if (!user) return null;
+  if (!isCommunityStaff(user)) return <Navigate to={CITIZEN_HOME} replace />;
+  if (permission && !userHasPermission(user, permission)) {
+    // Première page d'administration que le compte peut ouvrir (autre que celle-ci, pour ne jamais boucler).
+    const fallback = ADMIN_NAV.find((entry) => entry.path !== location.pathname && userHasPermission(user, entry.permission));
+    if (fallback) return <Navigate to={fallback.path} replace />;
+
+    return (
+      <div className="mx-auto max-w-lg rounded-2xl border border-gray-200 bg-white p-8 text-center dark:border-gray-800 dark:bg-white/[0.03]">
+        <h2 className="text-lg font-semibold text-gray-800 dark:text-white/90">Accès non autorisé</h2>
+        <p className="mt-2 text-sm text-gray-500 dark:text-gray-400">Votre rôle ne donne pas accès à cette section de l'administration.</p>
+        <Link to="/profile" className="mt-4 inline-block text-sm font-medium text-brand-600 hover:underline">
+          Aller à mon profil
+        </Link>
+      </div>
+    );
+  }
+
+  return <>{children}</>;
+}
+
+/** /dashboard est le tableau de bord citoyen : le personnel n'a pas de dossier, il va sur /admin. */
+export function CitizenOnly({ children }: { children: ReactNode }) {
+  const { user } = useAuth();
+
+  if (isCommunityStaff(user)) return <Navigate to={STAFF_HOME} replace />;
 
   return <>{children}</>;
 }

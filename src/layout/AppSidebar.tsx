@@ -1,4 +1,4 @@
-import { useCallback, useEffect, useRef, useState } from "react";
+import { useCallback, useEffect, useMemo, useRef, useState } from "react";
 import { Link, useLocation } from "react-router";
 
 // Assume these icons are imported from an icon library
@@ -15,7 +15,9 @@ import {
   UserCircleIcon,
 } from "../icons";
 import { useSidebar } from "../context/SidebarContext";
-import { CalendarDaysIcon, CheckSquareIcon, IdCardIcon, MegaphoneIcon, PaletteIcon, PlaneIcon } from "lucide-react";
+import { CalendarDaysIcon, CheckSquareIcon, IdCardIcon, LifeBuoyIcon, MegaphoneIcon, PaletteIcon, PlaneIcon } from "lucide-react";
+import { useCommunityAccess } from "../hooks/useCommunityAccess";
+import { ADMIN_NAV } from "../pages/Admin/adminNav";
 
 type NavItem = {
   name: string;
@@ -158,6 +160,12 @@ const navItems: NavItem[] = [
 ];
 
 
+const profileItem: NavItem = {
+  name: "Profil utilisateur",
+  icon: <UserCircleIcon />,
+  path: "/profile",
+};
+
 const othersItems: NavItem[] = [
   {
     name: "Communauté",
@@ -184,15 +192,31 @@ const othersItems: NavItem[] = [
     path: "/chat",
   },
   {
-    name: "Profil utilisateur",
-    icon: <UserCircleIcon />,
-    path: "/profile",
+    name: "Contacter le support",
+    icon: <LifeBuoyIcon />,
+    path: "/support",
   },
+  profileItem,
 ];
 
 const AppSidebar: React.FC = () => {
   const { isExpanded, isMobileOpen, isHovered, setIsHovered } = useSidebar();
   const location = useLocation();
+  const { isStaff, hasPermission } = useCommunityAccess();
+
+  // Personnel de la communauté : menu d'administration (filtré par permissions) à la place des services consulaires.
+  const mainItems = useMemo<NavItem[]>(
+    () =>
+      isStaff
+        ? ADMIN_NAV.filter((entry) => hasPermission(entry.permission)).map((entry) => ({
+            name: entry.name,
+            path: entry.path,
+            icon: <entry.icon />,
+          }))
+        : navItems,
+    [isStaff, hasPermission]
+  );
+  const bottomItems = isStaff ? [profileItem] : othersItems;
 
   const [openSubmenu, setOpenSubmenu] = useState<{
     type: "main" | "others";
@@ -204,15 +228,17 @@ const AppSidebar: React.FC = () => {
   const subMenuRefs = useRef<Record<string, HTMLDivElement | null>>({});
 
   // const isActive = (path: string) => location.pathname === path;
+  // Les pages /admin/xxx/:id gardent leur entrée de menu active ; /admin seul reste exact.
   const isActive = useCallback(
-    (path: string) => location.pathname === path,
+    (path: string) =>
+      path.startsWith("/admin/") ? location.pathname === path || location.pathname.startsWith(`${path}/`) : location.pathname === path,
     [location.pathname]
   );
 
   useEffect(() => {
     let submenuMatched = false;
     ["main", "others"].forEach((menuType) => {
-      const items = menuType === "main" ? navItems : othersItems;
+      const items = menuType === "main" ? mainItems : bottomItems;
       items.forEach((nav, index) => {
         if (nav.subItems) {
           nav.subItems.forEach((subItem) => {
@@ -231,7 +257,7 @@ const AppSidebar: React.FC = () => {
     if (!submenuMatched) {
       setOpenSubmenu(null);
     }
-  }, [location, isActive]);
+  }, [location, isActive, mainItems, bottomItems]);
 
   useEffect(() => {
     if (openSubmenu !== null) {
@@ -435,12 +461,12 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Services Consulaires"
+                  isStaff ? "Administration" : "Services Consulaires"
                 ) : (
                   <HorizontaLDots className="size-6" />
                 )}
               </h2>
-              {renderMenuItems(navItems, "main")}
+              {renderMenuItems(mainItems, "main")}
             </div>
             <div className="">
               <h2
@@ -451,12 +477,12 @@ const AppSidebar: React.FC = () => {
                 }`}
               >
                 {isExpanded || isHovered || isMobileOpen ? (
-                  "Autres"
+                  isStaff ? "Compte" : "Autres"
                 ) : (
                   <HorizontaLDots />
                 )}
               </h2>
-              {renderMenuItems(othersItems, "others")}
+              {renderMenuItems(bottomItems, "others")}
             </div>
           </div>
         </nav>

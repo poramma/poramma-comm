@@ -7,6 +7,7 @@ import Checkbox from "../form/input/Checkbox";
 import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
 import { emailError } from "../../lib/email";
+import { STAFF_HOME, homePathFor, isCommunityStaff } from "../../lib/communityAccess";
 
 
 export default function SignInForm() {
@@ -37,10 +38,16 @@ export default function SignInForm() {
 
     try {
       setLoading(true);
-      await login(email.trim(), password, isChecked);
-      // Retour là où l'usager voulait aller (ex. un service cliqué depuis l'accueil), sinon le tableau de bord.
+      const loggedIn = await login(email.trim(), password, isChecked);
+      // Retour là où l'usager voulait aller (ex. un service cliqué depuis l'accueil), sinon son tableau de bord.
+      // Le personnel de la communauté n'a ni dossier ni INUE : il n'est renvoyé que vers /admin/*, sinon /admin.
       const from = (location.state as { from?: string } | null)?.from;
-      navigate(from && from.startsWith("/") ? from : "/dashboard");
+      const wanted = from && from.startsWith("/") ? from : null;
+      if (isCommunityStaff(loggedIn)) {
+        navigate(wanted && wanted.startsWith("/admin") ? wanted : STAFF_HOME);
+      } else {
+        navigate(wanted ?? homePathFor(loggedIn));
+      }
     } catch (err: any) {
       setErrors({ form: err.response?.data?.message || "Email ou mot de passe incorrect" });
     } finally {
