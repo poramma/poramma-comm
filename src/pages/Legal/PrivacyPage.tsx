@@ -24,6 +24,7 @@ const sections: LegalSection[] = [
           <li><strong>Enregistrement :</strong> statut de votre dossier, décision de l'ambassade et numéro INUE attribué.</li>
           <li><strong>Documents :</strong> pièces justificatives et fichiers que vous déposez à l'appui de votre enregistrement ou de vos demandes.</li>
           <li><strong>Démarches :</strong> demandes et leur historique, messages et compléments d'information échangés, rendez-vous, tickets de support.</li>
+          <li><strong>Connexion avec Google (facultative) :</strong> si vous choisissez de vous connecter ou de vous inscrire avec Google, nous recevons de Google votre adresse email vérifiée, votre prénom et votre nom, ainsi qu'un identifiant technique de votre compte Google. Nous ne recevons ni votre mot de passe Google ni l'accès à vos contenus Google, et nous n'écrivons rien dans votre compte Google. Vous pouvez dissocier Google à tout moment depuis les Paramètres.</li>
           <li><strong>Notifications :</strong> alertes envoyées dans l'application et par email, et leur état de lecture.</li>
           <li><strong>Données techniques :</strong> adresse IP, navigateur et appareil, sessions de connexion, journal des actions de sécurité (connexion, déconnexion, changement de mot de passe).</li>
         </ul>

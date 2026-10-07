@@ -2,7 +2,7 @@ import { useState } from "react";
 import { Link, Navigate, useNavigate } from "react-router-dom";
 import { toast, ToastContainer } from "react-toastify";
 import "react-toastify/dist/ReactToastify.css";
-import { Bell, KeyRound, LogOut, Moon, ScrollText, Sun, UserRound } from "lucide-react";
+import { Bell, KeyRound, Link2, LogOut, Moon, ScrollText, Sun, UserRound } from "lucide-react";
 import PageBreadcrumb from "../../components/common/PageBreadCrumb";
 import PageMeta from "../../components/common/PageMeta";
 import Button from "../../components/ui/button/Button";
@@ -12,7 +12,9 @@ import { EyeCloseIcon, EyeIcon } from "../../icons";
 import { useAuth } from "../../context/AuthContext";
 import { useRegistration } from "../../context/RegistrationContext";
 import { useTheme } from "../../context/ThemeContext";
-import { userService } from "../../lib/services";
+import { authService, userService } from "../../lib/services";
+import { useGoogleClientId } from "../../hooks/useGoogleClientId";
+import GoogleButton from "../../components/auth/GoogleButton";
 
 const TYPE_LABELS: Record<string, string> = {
   student: "Étudiant(e)",
@@ -61,7 +63,9 @@ function Row({ label, value }: { label: string; value: React.ReactNode }) {
 
 export default function SettingsPage() {
   const navigate = useNavigate();
-  const { user, loading, logout } = useAuth();
+  const { user, loading, logout, refreshUser } = useAuth();
+  const { clientId: googleClientId } = useGoogleClientId();
+  const [googleBusy, setGoogleBusy] = useState(false);
   const { registration } = useRegistration();
   const { theme, toggleTheme } = useTheme();
 
@@ -99,6 +103,37 @@ export default function SettingsPage() {
       setPasswordError(status === 401 ? "Le mot de passe actuel est incorrect." : err?.response?.data?.message || "Le mot de passe n'a pas pu être modifié.");
     } finally {
       setSaving(false);
+    }
+  };
+
+  // Méthodes de connexion : un compte créé avec Google n'a pas de mot de passe tant qu'on n'en définit pas un.
+  const hasPassword = user.authMethods?.password ?? true;
+  const googleLinked = user.authMethods?.google ?? false;
+
+  const linkGoogle = async (credential: string) => {
+    setGoogleBusy(true);
+    try {
+      await authService.linkGoogle(credential);
+      await refreshUser();
+      toast.success("Votre compte Google est lié : vous pouvez l'utiliser pour vous connecter.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.details?.email?.[0] || err?.response?.data?.message || "Le compte Google n'a pas pu être lié.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
+
+  const unlinkGoogle = async () => {
+    if (!window.confirm("Dissocier votre compte Google ? Vous vous connecterez ensuite uniquement avec votre email et votre mot de passe.")) return;
+    setGoogleBusy(true);
+    try {
+      await authService.unlinkGoogle();
+      await refreshUser();
+      toast.success("Votre compte Google a été dissocié.");
+    } catch (err: any) {
+      toast.error(err?.response?.data?.message || "Le compte Google n'a pas pu être dissocié.");
+    } finally {
+      setGoogleBusy(false);
     }
   };
 
@@ -149,6 +184,19 @@ export default function SettingsPage() {
         {/* Sécurité */}
         <section className={card}>
           <CardTitle icon={KeyRound} title="Mot de passe" text="Choisissez un mot de passe que vous n'utilisez nulle part ailleurs." />
+          {!hasPassword ? (
+            <div className="space-y-4">
+              <p className="text-sm text-gray-600 dark:text-gray-300">
+                Vous vous connectez avec Google : ce compte n'a pas encore de mot de passe. Vous pouvez en définir un pour vous connecter aussi avec votre email (un code de vérification est envoyé à {user.email}).
+              </p>
+              <Link
+                to={`/reset-password?email=${encodeURIComponent(user.email)}`}
+                className="inline-flex items-center justify-center rounded-lg bg-brand-500 px-4 py-3 text-sm font-medium text-white shadow-theme-xs transition hover:bg-brand-600"
+              >
+                Définir un mot de passe
+              </Link>
+            </div>
+          ) : (
           <form onSubmit={changePassword} className="space-y-4">
             <div>
               <Label>Mot de passe actuel</Label>
@@ -177,7 +225,38 @@ export default function SettingsPage() {
               </Button>
             </div>
           </form>
+          )}
         </section>
+
+        {/* Connexion avec Google */}
+        {(googleLinked || googleClientId) && (
+          <section className={card}>
+            <CardTitle icon={Link2} title="Connexion avec Google" text="Connectez-vous en un clic avec votre compte Google." />
+            {googleLinked ? (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-700 dark:text-gray-200">
+                  <span className="mr-2 inline-flex rounded-full bg-success-50 px-2.5 py-0.5 text-xs font-medium text-success-700 dark:bg-success-500/15 dark:text-success-500">Lié</span>
+                  Votre compte Google est lié à {user.email}.
+                </p>
+                {!hasPassword && (
+                  <p className="text-sm text-gray-500 dark:text-gray-400">
+                    Pour pouvoir dissocier Google, définissez d'abord un mot de passe (section ci-dessus) : sans lui, vous ne pourriez plus accéder à votre compte.
+                  </p>
+                )}
+                <Button size="sm" variant="outline" onClick={unlinkGoogle} disabled={googleBusy || !hasPassword}>
+                  {googleBusy ? "Un instant..." : "Dissocier Google"}
+                </Button>
+              </div>
+            ) : (
+              <div className="space-y-3">
+                <p className="text-sm text-gray-600 dark:text-gray-300">
+                  Liez le compte Google associé à {user.email} : vous pourrez l'utiliser pour vous connecter, en plus de votre mot de passe.
+                </p>
+                {googleClientId && <GoogleButton clientId={googleClientId} text="continue_with" onCredential={linkGoogle} busy={googleBusy} />}
+              </div>
+            )}
+          </section>
+        )}
 
         {/* Apparence */}
         <section className={card}>

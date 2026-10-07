@@ -1,5 +1,5 @@
 import { useEffect, useState } from "react";
-import { Link, useNavigate } from "react-router";
+import { Link, useNavigate, useSearchParams } from "react-router";
 import PageMeta from "../../components/common/PageMeta";
 import AuthLayout from "./AuthPageLayout";
 import Label from "../../components/form/Label";
@@ -26,7 +26,9 @@ function passwordProblem(pwd: string): string | null {
 export default function ResetPassword() {
   const navigate = useNavigate();
   const [step, setStep] = useState<"email" | "code" | "done">("email");
-  const [email, setEmail] = useState("");
+  // « Définir un mot de passe » depuis les Paramètres (compte créé avec Google) arrive ici avec ?email=.
+  const [searchParams] = useSearchParams();
+  const [email, setEmail] = useState(() => searchParams.get("email")?.trim().slice(0, 255) ?? "");
   const [otp, setOtp] = useState("");
   const [password, setPassword] = useState("");
   const [confirm, setConfirm] = useState("");

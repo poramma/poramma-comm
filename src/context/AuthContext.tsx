@@ -7,6 +7,8 @@ interface AuthContextType {
   user: AuthUser | null;
   loading: boolean;
   login: (email: string, password: string, rememberMe?: boolean) => Promise<AuthUser>;
+  /** Connexion / inscription avec Google ; `isNewUser` = le compte vient d'être créé. */
+  loginWithGoogle: (credential: string, rememberMe?: boolean) => Promise<{ user: AuthUser; isNewUser: boolean }>;
   sendOtp: (email: string) => Promise<void>;
   verifyOtp: (data: { email: string; otp: string; password: string; firstName: string; lastName: string; phone?: string }) => Promise<void>;
   logout: () => Promise<void>;
@@ -40,6 +42,12 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
     return loggedInUser;
   };
 
+  const loginWithGoogle = async (credential: string, rememberMe?: boolean) => {
+    const result = await authService.google(credential, rememberMe);
+    setUser(result.user);
+    return result;
+  };
+
   const sendOtp = async (email: string) => {
     await authService.sendOtp(email);
   };
@@ -58,7 +66,7 @@ export const AuthProvider = ({ children }: { children: ReactNode }) => {
   };
 
   return (
-    <AuthContext.Provider value={{ user, loading, login, sendOtp, verifyOtp, logout, refreshUser }}>
+    <AuthContext.Provider value={{ user, loading, login, loginWithGoogle, sendOtp, verifyOtp, logout, refreshUser }}>
       {children}
     </AuthContext.Provider>
   );

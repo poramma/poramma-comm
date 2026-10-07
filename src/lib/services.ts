@@ -56,6 +56,30 @@ export const authService = {
     return unwrap<{ success: boolean; user: { id: string; email: string } }>(res).user;
   },
 
+  /** Configuration publique (identifiant OAuth Google, non secret). `google: null` = connexion Google non configurée. */
+  config: async (): Promise<{ google: { clientId: string } | null }> => {
+    const res = await api.get("/auth/config");
+    return unwrap(res);
+  },
+
+  /** Connexion, inscription ou liaison automatique par email : `credential` = ID token fourni par Google Identity Services. */
+  google: async (credential: string, rememberMe?: boolean): Promise<{ user: AuthUser; isNewUser: boolean }> => {
+    const res = await api.post("/auth/google", { credential, rememberMe });
+    const { accessToken, refreshToken, user, isNewUser } = unwrap<{ accessToken: string; refreshToken: string; user: AuthUser; isNewUser: boolean }>(res);
+    setTokens(accessToken, refreshToken);
+    return { user, isNewUser };
+  },
+
+  /** Lie un compte Google (même adresse email) au compte connecté. */
+  linkGoogle: async (credential: string): Promise<void> => {
+    await api.post("/auth/google/link", { credential });
+  },
+
+  /** Dissocie Google ; refusé par le serveur tant qu'aucun mot de passe n'est défini. */
+  unlinkGoogle: async (): Promise<void> => {
+    await api.delete("/auth/google");
+  },
+
   login: async (email: string, password: string, rememberMe?: boolean): Promise<AuthUser> => {
     const res = await api.post("/auth/login", { email, password, rememberMe });
     const { accessToken, refreshToken, user } = unwrap<{ accessToken: string; refreshToken: string; user: AuthUser }>(res);

@@ -7,6 +7,9 @@ import Button from "../ui/button/Button";
 import { useAuth } from "../../context/AuthContext";
 import { EyeClosed, EyeIcon } from "lucide-react";
 import { emailError } from "../../lib/email";
+import { homePathFor } from "../../lib/communityAccess";
+import { useGoogleClientId } from "../../hooks/useGoogleClientId";
+import GoogleButton from "./GoogleButton";
 
 export default function SignUpForm() {
   const [showPassword, setShowPassword] = useState(false);
@@ -31,7 +34,25 @@ export default function SignUpForm() {
     password: "",
   });
   const navigate = useNavigate();
-  const { sendOtp, verifyOtp } = useAuth();
+  const { sendOtp, verifyOtp, loginWithGoogle } = useAuth();
+  const { clientId: googleClientId } = useGoogleClientId();
+  const [googleBusy, setGoogleBusy] = useState(false);
+  const [googleError, setGoogleError] = useState<string | null>(null);
+
+  // Inscription avec Google : pas de code par email (Google a déjà vérifié l'adresse) ni de mot de passe à créer.
+  // Si un compte existe déjà avec cette adresse, il est simplement connecté (et lié à Google).
+  const handleGoogle = async (credential: string) => {
+    setGoogleError(null);
+    try {
+      setGoogleBusy(true);
+      const { user } = await loginWithGoogle(credential);
+      navigate(homePathFor(user));
+    } catch (err: any) {
+      setGoogleError(err.response?.data?.message || "L'inscription avec Google a échoué. Réessayez.");
+    } finally {
+      setGoogleBusy(false);
+    }
+  };
 
   const handleSubmitForm = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -115,6 +136,24 @@ export default function SignUpForm() {
                 Remplissez le formulaire pour créer votre compte
               </p>
             </div>
+            {googleClientId && (
+              <div className="mb-5">
+                <GoogleButton clientId={googleClientId} text="signup_with" onCredential={handleGoogle} busy={googleBusy} />
+                {googleError && (
+                  <p role="alert" className="mt-3 text-sm text-red-500">
+                    {googleError}
+                  </p>
+                )}
+                <div className="relative py-4">
+                  <div className="absolute inset-0 flex items-center">
+                    <div className="w-full border-t border-gray-200 dark:border-gray-800"></div>
+                  </div>
+                  <div className="relative flex justify-center text-sm">
+                    <span className="p-2 text-gray-400 bg-white dark:bg-gray-900 sm:px-5 sm:py-2">Ou avec votre email</span>
+                  </div>
+                </div>
+              </div>
+            )}
             <form onSubmit={handleSubmitForm} className="space-y-5">
               <div>
                 <Label>Prénom<span className="text-error-500">*</span></Label>

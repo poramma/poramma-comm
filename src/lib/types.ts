@@ -24,6 +24,8 @@ export interface AuthUser {
   permissions?: string[];
   /** Rôle actuellement actif (un compte du personnel communautaire en a un). */
   activeRole?: { name: string; level: number; id?: string; description?: string | null } | null;
+  /** Comment ce compte se connecte : mot de passe défini par l'usager et/ou compte Google lié. */
+  authMethods?: { password: boolean; google: boolean };
 }
 
 /** Réponse de GET /users/me/:id/profile (identity-api) — pas d'enveloppe ok(). */
